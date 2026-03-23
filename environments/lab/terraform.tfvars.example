@@ -1,0 +1,8 @@
+environment_name = "lab"
+artifact_name    = "lab-artifact"
+artifact_path    = "lab-artifact.txt"
+
+metadata = {
+  owner   = "platform-team"
+  purpose = "local-lab"
+}

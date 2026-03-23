@@ -1,0 +1,17 @@
+project_id               = "your-project-id"
+region                   = "us-central1"
+name_prefix              = "client-whitelist"
+create_network           = false
+existing_network_name    = "shared-vpc"
+create_subnetwork        = false
+existing_subnetwork_name = "serverless-subnet"
+
+# Optional overrides
+# network_name             = "client-whitelist-vpc"
+# subnetwork_name          = "client-whitelist-subnet"
+# nat_ip_name              = "client-whitelist-nat-ip"
+# router_name              = "client-whitelist-router"
+# nat_name                 = "client-whitelist-nat"
+# connector_name           = "client-whitelist-connector"
+# subnetwork_ip_cidr_range = "10.42.0.0/24"
+# connector_ip_cidr_range  = "10.42.16.0/28"

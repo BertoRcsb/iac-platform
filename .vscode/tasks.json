@@ -1,0 +1,33 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Terraform: Init Lab",
+      "type": "shell",
+      "command": "terraform -chdir=environments/lab init",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Terraform: Validate Lab",
+      "type": "shell",
+      "command": "terraform -chdir=environments/lab validate",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Terraform: Plan Lab",
+      "type": "shell",
+      "command": "terraform -chdir=environments/lab plan",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Terraform: Apply Lab",
+      "type": "shell",
+      "command": "terraform -chdir=environments/lab apply",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}
