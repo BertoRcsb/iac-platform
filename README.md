@@ -73,3 +73,51 @@ Or with Make directly:
 cd iac-platform/agents-local
 make verify ENV=lab
 ```
+# iac-platform
+
+This repository defines the platform architecture, workflows and AI-driven system for managing infrastructure and services.
+
+---
+
+## Purpose
+
+- Centralize platform decisions
+- Orchestrate standards (observability, infra, pipelines)
+- Enable AI-driven workflows
+- Support scalable and reusable architecture
+
+---
+
+## Structure
+
+- agents → AI roles and responsibilities
+- specs → specifications (spec-kit)
+- standards → platform standards
+- workflows → execution flows
+- scripts → automation
+
+---
+
+## Vision
+
+Create a platform where:
+
+- AI agents collaborate
+- Systems evolve continuously
+- Standards are enforced automatically
+- Documentation is always updated
+
+---
+
+## Integration
+
+Uses:
+
+- platform-observability-core → observability standard
+- spec-kit → specification system
+
+---
+
+## Current Stage
+
+Foundation phase (no infrastructure applied yet)
