@@ -1,0 +1,18 @@
+{
+  "name": "iac-platform-ai-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local AI provider hub for iac-platform",
+  "scripts": {
+    "check": "node ./src/check-providers.mjs",
+    "call": "node ./src/provider-call.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.51.0",
+    "@google/generative-ai": "^0.24.1",
+    "@huggingface/inference": "^4.8.1",
+    "groq-sdk": "^0.31.0",
+    "openai": "^5.12.0"
+  }
+}

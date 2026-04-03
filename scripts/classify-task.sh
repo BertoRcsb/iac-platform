@@ -7,24 +7,48 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
-TEXT="$(printf '%s' "$*" | tr '[:upper:]' '[:lower:]')"
+normalize_text() {
+  printf '%s' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed \
+      -e 's/[áàâãä]/a/g' \
+      -e 's/[éèêë]/e/g' \
+      -e 's/[íìîï]/i/g' \
+      -e 's/[óòôõö]/o/g' \
+      -e 's/[úùûü]/u/g' \
+      -e 's/ç/c/g'
+}
+
+contains_any() {
+  local text="$1"
+  shift
+  local term
+  for term in "$@"; do
+    if [[ "$text" == *"$term"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+TEXT="$(normalize_text "$*")"
 
 CATEGORY="general"
 PRIORITY="P3"
 
-if [[ "$TEXT" == *"acesso"* ]] || [[ "$TEXT" == *"iam"* ]] || [[ "$TEXT" == *"firestore"* ]]; then
+if contains_any "$TEXT" "firestore" "acesso" "access" "iam" "permission" "permissao" "credentials" "credencial" "role" "papel"; then
   CATEGORY="access-gcp"
   PRIORITY="P2"
-elif [[ "$TEXT" == *"pipeline"* ]] || [[ "$TEXT" == *"sonar"* ]] || [[ "$TEXT" == *"build"* ]]; then
+elif contains_any "$TEXT" "pipeline" "sonar" "build" "compilacao" "ci/cd" "cicd" "deploy pipeline"; then
   CATEGORY="ci-cd"
   PRIORITY="P2"
-elif [[ "$TEXT" == *"observability"* ]] || [[ "$TEXT" == *"datadog"* ]]; then
+elif contains_any "$TEXT" "observability" "observabilidade" "datadog" "telemetry" "telemetria" "logs" "log" "metrics" "metricas" "tracing" "rastreio"; then
   CATEGORY="observability"
   PRIORITY="P2"
-elif [[ "$TEXT" == *"release"* ]] || [[ "$TEXT" == *"deploy"* ]]; then
+elif contains_any "$TEXT" "release" "deploy" "deployment" "promocao" "promotion" "go-live" "rollback" "gate"; then
   CATEGORY="release"
   PRIORITY="P2"
-elif [[ "$TEXT" == *"documenta"* ]] || [[ "$TEXT" == *"readme"* ]]; then
+elif contains_any "$TEXT" "documenta" "documentation" "docs" "readme"; then
   CATEGORY="documentation"
   PRIORITY="P3"
 fi

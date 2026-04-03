@@ -8,7 +8,32 @@ if [[ $# -lt 1 ]]; then
 fi
 
 TASK="$*"
-LOWER="$(echo "$TASK" | tr '[:upper:]' '[:lower:]')"
+
+normalize_text() {
+  printf '%s' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed \
+      -e 's/[áàâãä]/a/g' \
+      -e 's/[éèêë]/e/g' \
+      -e 's/[íìîï]/i/g' \
+      -e 's/[óòôõö]/o/g' \
+      -e 's/[úùûü]/u/g' \
+      -e 's/ç/c/g'
+}
+
+contains_any() {
+  local text="$1"
+  shift
+  local term
+  for term in "$@"; do
+    if [[ "$text" == *"$term"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+NORM="$(normalize_text "$TASK")"
 
 CATEGORY="general"
 SPEC="none"
@@ -16,25 +41,25 @@ AGENT="analysis"
 PRIORITY="P3"
 
 # Classificação
-if [[ "$LOWER" == *"firestore"* ]] || [[ "$LOWER" == *"acesso"* ]] || [[ "$LOWER" == *"iam"* ]]; then
+if contains_any "$NORM" "firestore" "acesso" "access" "iam" "permission" "permissao" "credentials" "credencial" "role" "papel"; then
   CATEGORY="access-gcp"
   SPEC="jira-analysis"
   AGENT="analysis"
   PRIORITY="P2"
 
-elif [[ "$LOWER" == *"pipeline"* ]] || [[ "$LOWER" == *"sonar"* ]] || [[ "$LOWER" == *"build"* ]]; then
+elif contains_any "$NORM" "pipeline" "sonar" "build" "compilacao" "ci/cd" "cicd" "deploy pipeline"; then
   CATEGORY="ci-cd"
   SPEC="jira-analysis"
   AGENT="analysis"
   PRIORITY="P2"
 
-elif [[ "$LOWER" == *"observability"* ]] || [[ "$LOWER" == *"datadog"* ]]; then
+elif contains_any "$NORM" "observability" "observabilidade" "datadog" "telemetry" "telemetria" "logs" "log" "metrics" "metricas" "tracing" "rastreio"; then
   CATEGORY="observability"
   SPEC="observability"
   AGENT="execution"
   PRIORITY="P2"
 
-elif [[ "$LOWER" == *"release"* ]] || [[ "$LOWER" == *"deploy"* ]]; then
+elif contains_any "$NORM" "release" "deploy" "deployment" "promocao" "promotion" "go-live" "rollback" "gate"; then
   CATEGORY="release"
   SPEC="release-management"
   AGENT="release"

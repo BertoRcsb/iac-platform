@@ -22,3 +22,33 @@ Thumbs.db
 
 # Keep lock file committed
 !.terraform.lock.hcl
+
+# Local runtime configuration (may include secrets)
+config/jira-intake.env
+config/ai-providers.env
+config/agentctl.env
+
+# Node dependencies
+node_modules/
+tools/ai-hub/node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local UI runtime artifacts
+.agentctl-ui.pid
+outputs/reports/agentctl-ui.log
+
+# Runtime generated task artifacts
+tasks/incoming/task-*.md
+tasks/incoming/task-*/
+
+# Runtime generated learning artifacts
+knowledge/shared/*.md
+
+# Runtime generated output artifacts
+outputs/checklists/
+outputs/releases/
+outputs/reports/*.md
+outputs/reports/*.ndjson

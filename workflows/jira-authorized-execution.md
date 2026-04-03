@@ -1,0 +1,13 @@
+# Workflow: Jira Authorized Execution
+
+1. Manager selects Jira card to work on
+2. Card is authorized with `jira-authorize`
+3. System reads card via Jira API (`jira-run`)
+4. System generates category, risks, plan, and next action
+5. Execution only runs when:
+   - card is authorized
+   - manager approval flags are provided
+6. Review and learning documentation are generated
+
+Security rule:
+- Non-authorized Jira cards are blocked from execution.

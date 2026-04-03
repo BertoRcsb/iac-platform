@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iac-platform/specs/task.schema.json",
+  "title": "Agent OS Task Schema",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task_id",
+    "state",
+    "created_at",
+    "updated_at",
+    "source",
+    "request",
+    "classification",
+    "plan",
+    "routing",
+    "execution",
+    "review",
+    "learning",
+    "history"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "state": {
+      "type": "string",
+      "enum": ["NEW", "TRIAGED", "PLANNED", "APPROVED", "EXECUTING", "REVIEW", "DONE", "BLOCKED"]
+    },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" },
+    "source": {
+      "type": "object",
+      "required": ["type", "reference"],
+      "properties": {
+        "type": { "type": "string" },
+        "reference": { "type": "string" }
+      }
+    },
+    "request": { "type": "string" },
+    "classification": {
+      "type": "object",
+      "required": ["category", "priority", "risks"],
+      "properties": {
+        "category": { "type": "string" },
+        "priority": { "type": "string", "enum": ["P1", "P2", "P3", "P4"] },
+        "risks": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "required": ["summary", "steps", "approval_required"],
+      "properties": {
+        "summary": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "approval_required": { "type": "boolean" }
+      }
+    },
+    "routing": { "type": "object" },
+    "execution": { "type": "object" },
+    "review": { "type": "object" },
+    "learning": { "type": "object" },
+    "context": { "type": "object" },
+    "history": {
+      "type": "array",
+      "items": { "type": "object" }
+    }
+  }
+}
