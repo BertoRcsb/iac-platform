@@ -24,8 +24,10 @@ Opcional (deixar sempre ativa):
 2. Em `Jira (Ler Card e Resolver)`:
    - preencha link/chave do card (ex.: `INF-33`)
    - clique `Autorizar Card` (gate de segurança)
+   - clique `Listar Transições` para ver status válidos
    - clique `Ler e Planejar` para gerar solução
    - para executar com aprovação, preencha `Aprovado por` e `Nota de aprovação`
+   - opcional: use `Publicar Comentário` e `Mover Status` (exigem aprovação)
 3. Em `Executar Pipeline (Modo Equipe)`:
    - preencha a entrada (texto ou contexto Jira)
    - selecione template e perfil de equipe (opcional)
@@ -63,8 +65,10 @@ Optional (always active):
 2. In `Jira (Read Card and Solve)`:
    - provide issue URL/key (e.g. `INF-33`)
    - click `Authorize Card` (security gate)
+   - click `List Transitions` to inspect valid Jira statuses
    - click `Read and Plan`
    - to execute with approval, fill `Approved by` and `Approval note`
+   - optional: use `Post Comment` and `Move Status` (approval required)
 3. In `Run Pipeline (Team Mode)`:
    - fill input (text or Jira context)
    - select template/team profile (optional)

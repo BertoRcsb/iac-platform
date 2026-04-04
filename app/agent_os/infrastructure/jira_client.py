@@ -1,4 +1,4 @@
-"""Jira API integration helpers (read-only intake)."""
+"""Jira API integration helpers."""
 
 from __future__ import annotations
 
@@ -30,6 +30,12 @@ class JiraIssue:
     priority: str
     issue_type: str
     labels: list[str]
+
+
+@dataclass(frozen=True)
+class JiraTransition:
+    transition_id: str
+    name: str
 
 
 def extract_issue_key(value: str) -> str:
@@ -86,26 +92,7 @@ def fetch_jira_issue(issue_ref: str, settings: JiraSettings, timeout_sec: int = 
         "?fields=summary,description,priority,issuetype,status,labels&expand=renderedFields"
     )
 
-    auth_raw = f"{settings.email}:{settings.api_token}".encode("utf-8")
-    auth_header = "Basic " + base64.b64encode(auth_raw).decode("ascii")
-    request = urllib.request.Request(
-        api_url,
-        headers={
-            "Accept": "application/json",
-            "Authorization": auth_header,
-        },
-        method="GET",
-    )
-
-    try:
-        with urllib.request.urlopen(request, timeout=timeout_sec) as response:  # noqa: S310
-            payload = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raise JiraClientError(f"Jira API HTTP error {exc.code}") from exc
-    except urllib.error.URLError as exc:
-        raise JiraClientError(f"Jira API connection error: {exc.reason}") from exc
-    except json.JSONDecodeError as exc:
-        raise JiraClientError("Invalid JSON response from Jira API") from exc
+    payload = _request_json(settings, method="GET", url=api_url, payload=None, timeout_sec=timeout_sec)
 
     fields = payload.get("fields") or {}
     summary = str(fields.get("summary") or "").strip()
@@ -126,6 +113,152 @@ def fetch_jira_issue(issue_ref: str, settings: JiraSettings, timeout_sec: int = 
         issue_type=issue_type,
         labels=labels,
     )
+
+
+def _basic_auth_header(settings: JiraSettings) -> str:
+    auth_raw = f"{settings.email}:{settings.api_token}".encode("utf-8")
+    return "Basic " + base64.b64encode(auth_raw).decode("ascii")
+
+
+def _request_json(
+    settings: JiraSettings,
+    method: str,
+    url: str,
+    payload: dict | None,
+    timeout_sec: int,
+) -> dict:
+    body: bytes | None = None
+    headers = {
+        "Accept": "application/json",
+        "Authorization": _basic_auth_header(settings),
+    }
+    if payload is not None:
+        body = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
+    request = urllib.request.Request(url, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_sec) as response:  # noqa: S310
+            raw = response.read().decode("utf-8") or "{}"
+            return json.loads(raw)
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail_raw = exc.read().decode("utf-8")
+            parsed = json.loads(detail_raw)
+            detail = str(parsed.get("errorMessages") or parsed.get("errors") or "").strip()
+        except Exception:
+            detail = ""
+        suffix = f": {detail}" if detail else ""
+        raise JiraClientError(f"Jira API HTTP error {exc.code}{suffix}") from exc
+    except urllib.error.URLError as exc:
+        raise JiraClientError(f"Jira API connection error: {exc.reason}") from exc
+    except json.JSONDecodeError as exc:
+        raise JiraClientError("Invalid JSON response from Jira API") from exc
+
+
+def _ensure_actions_enabled(settings: JiraSettings) -> None:
+    if not settings.enabled:
+        raise JiraClientError("JIRA_API_ENABLED=false")
+    if not settings.actions_enabled:
+        raise JiraClientError("JIRA_ACTIONS_ENABLED=false")
+    if not settings.base_url or not settings.email or not settings.api_token:
+        raise JiraClientError("Jira credentials are missing in config/jira-intake.env")
+
+
+def list_jira_transitions(issue_ref: str, settings: JiraSettings, timeout_sec: int = 20) -> list[JiraTransition]:
+    _ensure_actions_enabled(settings)
+    issue_key = extract_issue_key(issue_ref)
+    if not issue_key:
+        raise JiraClientError("Could not extract Jira issue key")
+
+    base = settings.base_url.rstrip("/")
+    api_url = f"{base}/rest/api/3/issue/{issue_key}/transitions"
+    payload = _request_json(settings, method="GET", url=api_url, payload=None, timeout_sec=timeout_sec)
+    transitions_raw = payload.get("transitions") or []
+    transitions: list[JiraTransition] = []
+    for item in transitions_raw:
+        if not isinstance(item, dict):
+            continue
+        transition_id = str(item.get("id") or "").strip()
+        name = str(item.get("name") or "").strip()
+        if transition_id and name:
+            transitions.append(JiraTransition(transition_id=transition_id, name=name))
+    return transitions
+
+
+def _allowed_transition_names(settings: JiraSettings) -> set[str]:
+    raw = settings.allowed_transition_names or ""
+    values = {item.strip().lower() for item in raw.split(",") if item.strip()}
+    return values
+
+
+def transition_jira_issue(issue_ref: str, to_status: str, settings: JiraSettings, timeout_sec: int = 20) -> dict:
+    _ensure_actions_enabled(settings)
+    issue_key = extract_issue_key(issue_ref)
+    if not issue_key:
+        raise JiraClientError("Could not extract Jira issue key")
+    target = (to_status or "").strip()
+    if not target:
+        raise JiraClientError("Target status is required")
+
+    allowed = _allowed_transition_names(settings)
+    if allowed and target.lower() not in allowed:
+        raise JiraClientError(
+            f"Transition '{target}' is not allowed by JIRA_ALLOWED_TRANSITIONS={settings.allowed_transition_names}"
+        )
+
+    transitions = list_jira_transitions(issue_key, settings, timeout_sec=timeout_sec)
+    chosen = next((item for item in transitions if item.name.lower() == target.lower()), None)
+    if not chosen:
+        valid = ", ".join(item.name for item in transitions) or "none"
+        raise JiraClientError(f"Transition '{target}' not available for {issue_key}. Available: {valid}")
+
+    base = settings.base_url.rstrip("/")
+    api_url = f"{base}/rest/api/3/issue/{issue_key}/transitions"
+    _request_json(
+        settings,
+        method="POST",
+        url=api_url,
+        payload={"transition": {"id": chosen.transition_id}},
+        timeout_sec=timeout_sec,
+    )
+    return {
+        "issue_key": issue_key,
+        "transition_id": chosen.transition_id,
+        "transition_name": chosen.name,
+    }
+
+
+def add_jira_comment(issue_ref: str, comment: str, settings: JiraSettings, timeout_sec: int = 20) -> dict:
+    _ensure_actions_enabled(settings)
+    issue_key = extract_issue_key(issue_ref)
+    if not issue_key:
+        raise JiraClientError("Could not extract Jira issue key")
+    text = (comment or "").strip()
+    if not text:
+        raise JiraClientError("Comment cannot be empty")
+
+    base = settings.base_url.rstrip("/")
+    api_url = f"{base}/rest/api/3/issue/{issue_key}/comment"
+    payload = {
+        "body": {
+            "type": "doc",
+            "version": 1,
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": text}],
+                }
+            ],
+        }
+    }
+    response = _request_json(settings, method="POST", url=api_url, payload=payload, timeout_sec=timeout_sec)
+    comment_id = str(response.get("id") or "")
+    return {
+        "issue_key": issue_key,
+        "comment_id": comment_id,
+    }
 
 
 def load_jira_allowlist(path: Path) -> set[str]:

@@ -43,6 +43,8 @@ class JiraSettings:
     base_url: str = ""
     email: str = ""
     api_token: str = ""
+    actions_enabled: bool = False
+    allowed_transition_names: str = "To Do,In Progress,Done"
     require_issue_allowlist: bool = True
     allowlist_file: str = "config/jira-issue-allowlist.txt"
 
@@ -116,6 +118,8 @@ def load_jira_settings(base_dir: Path) -> JiraSettings:
         base_url=raw.get("JIRA_BASE_URL", ""),
         email=raw.get("JIRA_EMAIL", ""),
         api_token=raw.get("JIRA_API_TOKEN", ""),
+        actions_enabled=parse_bool(raw.get("JIRA_ACTIONS_ENABLED"), False),
+        allowed_transition_names=raw.get("JIRA_ALLOWED_TRANSITIONS", "To Do,In Progress,Done"),
         require_issue_allowlist=parse_bool(raw.get("JIRA_REQUIRE_ISSUE_ALLOWLIST"), True),
         allowlist_file=raw.get("JIRA_ISSUE_ALLOWLIST_FILE", "config/jira-issue-allowlist.txt"),
     )

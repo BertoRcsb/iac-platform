@@ -201,6 +201,9 @@ Use a single command entrypoint for the full lifecycle:
 - `./scripts/agentctl jira-authorize --issue INF-33`
 - `./scripts/agentctl jira-run --issue INF-33 --context "detalhes extras" --template access-request --team devops`
 - `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops --manager-approved --approved-by "<manager>" --auto-approve`
+- `./scripts/agentctl jira-transitions --issue INF-33`
+- `./scripts/agentctl jira-comment --issue INF-33 --comment "Atualização do piloto" --manager-approved --approved-by "<manager>" --dry-run false`
+- `./scripts/agentctl jira-transition --issue INF-33 --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
 - `./scripts/agentctl run --input "<text-or-link>"`
 - `./scripts/agentctl run --input "<text-or-link>" --manager-approved --approved-by "<manager>" --auto-approve`
 - `./scripts/agentctl run --input "<text-or-link>" --template <template_id> --team <team_profile>`
@@ -251,6 +254,8 @@ Keep UI always active (background service):
 Configure:
 1. Fill `config/jira-intake.env`:
    - `JIRA_API_ENABLED="true"`
+   - `JIRA_ACTIONS_ENABLED="true"` (only when ready for real Jira writes)
+   - `JIRA_ALLOWED_TRANSITIONS="To Do,In Progress,Done"`
    - `JIRA_BASE_URL="https://your-company.atlassian.net"`
    - `JIRA_EMAIL="your-email"`
    - `JIRA_API_TOKEN="your-token"`
@@ -265,6 +270,10 @@ Workflow:
    - `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops`
 3. Execute only if authorized + approved:
    - `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops --manager-approved --approved-by "<manager>" --auto-approve`
+4. Optional external adapter actions (comment/transition):
+   - `./scripts/agentctl jira-transitions --issue INF-33`
+   - `./scripts/agentctl jira-comment --issue INF-33 --comment "Pilot update" --manager-approved --approved-by "<manager>" --dry-run false`
+   - `./scripts/agentctl jira-transition --issue INF-33 --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
 
 Security rule:
 - If card is not in allowlist, execution is blocked with suggested command.

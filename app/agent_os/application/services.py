@@ -29,8 +29,12 @@ from app.agent_os.infrastructure.doctor import DoctorCheck, run_doctor
 from app.agent_os.infrastructure.file_repo import TaskRepository
 from app.agent_os.infrastructure.jira_client import (
     JiraClientError,
+    add_jira_comment,
     authorize_jira_issue,
     ensure_jira_issue_authorized,
+    extract_issue_key,
+    list_jira_transitions,
+    transition_jira_issue,
     fetch_jira_issue,
 )
 from app.agent_os.infrastructure.llm_adapters import RuleBasedLLMAdapter
@@ -143,6 +147,20 @@ class AgentService:
                 break
 
         return {"failed": failed, "steps": steps_output}
+
+    def _require_external_action_approval(self, issue_ref: str, manager_approved: bool, approved_by: str) -> str:
+        if not manager_approved and self.settings.require_manager_approval:
+            raise ServiceError(
+                message="Manager approval required for external Jira action",
+                suggested_action="Run again with --manager-approved --approved-by '<manager>'",
+            )
+        approver = approved_by.strip()
+        if self.settings.require_manager_approval and not approver:
+            raise ServiceError(
+                message="approved_by is required for external Jira action",
+                suggested_action="Provide --approved-by '<manager-name>'",
+            )
+        return approver or "system-policy"
 
     def _gate_check_task(
         self,
@@ -859,6 +877,183 @@ class AgentService:
             "run_id": run_id,
             "issue_key": issue_key,
             "allowlist_file": str(allowlist_path),
+        }
+
+    def jira_transitions(self, issue_ref: str) -> dict[str, Any]:
+        start = perf_counter()
+        run_id = str(uuid.uuid4())
+        issue_key = extract_issue_key(issue_ref)
+        if not issue_key:
+            raise ServiceError(
+                message="Could not extract Jira issue key",
+                suggested_action="Use Jira URL or key like INF-33",
+            )
+        try:
+            ensure_jira_issue_authorized(issue_key, self.jira_settings, self.base_dir)
+            transitions = list_jira_transitions(issue_key, self.jira_settings)
+        except JiraClientError as exc:
+            raise ServiceError(
+                message=f"Jira transitions failed: {exc}",
+                suggested_action="Check Jira config and authorization allowlist",
+            ) from exc
+
+        self._log_event(
+            run_id=run_id,
+            task_id=issue_key,
+            agent="jira-adapter",
+            status="LIST_TRANSITIONS",
+            start=start,
+            details={"count": len(transitions)},
+        )
+        return {
+            "run_id": run_id,
+            "issue_key": issue_key,
+            "transitions": [{"id": item.transition_id, "name": item.name} for item in transitions],
+        }
+
+    def jira_comment(
+        self,
+        issue_ref: str,
+        comment: str,
+        manager_approved: bool,
+        approved_by: str,
+        approval_note: str = "",
+        dry_run: bool | None = None,
+    ) -> dict[str, Any]:
+        start = perf_counter()
+        run_id = str(uuid.uuid4())
+        issue_key = extract_issue_key(issue_ref)
+        if not issue_key:
+            raise ServiceError(
+                message="Could not extract Jira issue key",
+                suggested_action="Use Jira URL or key like INF-33",
+            )
+        approver = self._require_external_action_approval(issue_key, manager_approved, approved_by)
+
+        try:
+            ensure_jira_issue_authorized(issue_key, self.jira_settings, self.base_dir)
+        except JiraClientError as exc:
+            raise ServiceError(
+                message=str(exc),
+                suggested_action=f"Authorize first: ./scripts/agentctl jira-authorize --issue {issue_key}",
+            ) from exc
+
+        effective_dry_run = self.settings.dry_run if dry_run is None else dry_run
+        if not effective_dry_run and not self.jira_settings.actions_enabled:
+            raise ServiceError(
+                message="Jira external actions are disabled (JIRA_ACTIONS_ENABLED=false)",
+                suggested_action="Enable JIRA_ACTIONS_ENABLED=true to apply real Jira comments/transitions",
+            )
+        if effective_dry_run:
+            result = {
+                "issue_key": issue_key,
+                "comment_id": "",
+                "simulated": True,
+            }
+        else:
+            try:
+                result = add_jira_comment(issue_key, comment, self.jira_settings)
+                result["simulated"] = False
+            except JiraClientError as exc:
+                raise ServiceError(
+                    message=f"Jira comment failed: {exc}",
+                    suggested_action="Validate credentials, permissions, and JIRA_ACTIONS_ENABLED=true",
+                ) from exc
+
+        self._log_event(
+            run_id=run_id,
+            task_id=issue_key,
+            agent="jira-adapter",
+            status="COMMENTED" if not effective_dry_run else "SIMULATED_COMMENT",
+            start=start,
+            details={
+                "approved_by": approver,
+                "approval_note": approval_note,
+                "dry_run": effective_dry_run,
+                "comment_size": len(comment),
+            },
+        )
+        return {
+            "run_id": run_id,
+            "issue_key": issue_key,
+            "approved_by": approver,
+            "approval_note": approval_note,
+            "dry_run": effective_dry_run,
+            **result,
+            "next_command": f"./scripts/agentctl jira-transitions --issue {issue_key}",
+        }
+
+    def jira_transition(
+        self,
+        issue_ref: str,
+        to_status: str,
+        manager_approved: bool,
+        approved_by: str,
+        approval_note: str = "",
+        dry_run: bool | None = None,
+    ) -> dict[str, Any]:
+        start = perf_counter()
+        run_id = str(uuid.uuid4())
+        issue_key = extract_issue_key(issue_ref)
+        if not issue_key:
+            raise ServiceError(
+                message="Could not extract Jira issue key",
+                suggested_action="Use Jira URL or key like INF-33",
+            )
+        approver = self._require_external_action_approval(issue_key, manager_approved, approved_by)
+
+        try:
+            ensure_jira_issue_authorized(issue_key, self.jira_settings, self.base_dir)
+        except JiraClientError as exc:
+            raise ServiceError(
+                message=str(exc),
+                suggested_action=f"Authorize first: ./scripts/agentctl jira-authorize --issue {issue_key}",
+            ) from exc
+
+        effective_dry_run = self.settings.dry_run if dry_run is None else dry_run
+        if not effective_dry_run and not self.jira_settings.actions_enabled:
+            raise ServiceError(
+                message="Jira external actions are disabled (JIRA_ACTIONS_ENABLED=false)",
+                suggested_action="Enable JIRA_ACTIONS_ENABLED=true to apply real Jira comments/transitions",
+            )
+        if effective_dry_run:
+            result = {
+                "issue_key": issue_key,
+                "transition_id": "",
+                "transition_name": to_status,
+                "simulated": True,
+            }
+        else:
+            try:
+                result = transition_jira_issue(issue_key, to_status, self.jira_settings)
+                result["simulated"] = False
+            except JiraClientError as exc:
+                raise ServiceError(
+                    message=f"Jira transition failed: {exc}",
+                    suggested_action="Check JIRA_ALLOWED_TRANSITIONS and issue available transitions",
+                ) from exc
+
+        self._log_event(
+            run_id=run_id,
+            task_id=issue_key,
+            agent="jira-adapter",
+            status="TRANSITIONED" if not effective_dry_run else "SIMULATED_TRANSITION",
+            start=start,
+            details={
+                "approved_by": approver,
+                "approval_note": approval_note,
+                "dry_run": effective_dry_run,
+                "to_status": to_status,
+            },
+        )
+        return {
+            "run_id": run_id,
+            "issue_key": issue_key,
+            "approved_by": approver,
+            "approval_note": approval_note,
+            "dry_run": effective_dry_run,
+            **result,
+            "next_command": f"./scripts/agentctl jira-run --issue {issue_key}",
         }
 
     def jira_run(

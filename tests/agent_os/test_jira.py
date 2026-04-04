@@ -32,6 +32,8 @@ class TestJiraIntegration(unittest.TestCase):
                 base_url="https://acme.atlassian.net",
                 email="bot@example.com",
                 api_token="token",
+                actions_enabled=True,
+                allowed_transition_names="To Do,In Progress,Done",
                 require_issue_allowlist=True,
                 allowlist_file="config/jira-issue-allowlist.txt",
             ),
@@ -96,6 +98,60 @@ class TestJiraIntegration(unittest.TestCase):
         self.assertEqual(result["issue_key"], "INF-99")
         allowlist = self.base_dir / "config" / "jira-issue-allowlist.txt"
         self.assertIn("INF-99", allowlist.read_text(encoding="utf-8"))
+
+    def test_jira_comment_dry_run(self) -> None:
+        self.service.authorize_jira_issue("INF-33")
+        result = self.service.jira_comment(
+            issue_ref="INF-33",
+            comment="Analise iniciada pelo piloto",
+            manager_approved=True,
+            approved_by="Ronan",
+            approval_note="piloto",
+            dry_run=True,
+        )
+        self.assertTrue(result["simulated"])
+        self.assertEqual(result["issue_key"], "INF-33")
+
+    def test_jira_comment_requires_approved_by(self) -> None:
+        self.service.authorize_jira_issue("INF-33")
+        with self.assertRaises(ServiceError) as ctx:
+            self.service.jira_comment(
+                issue_ref="INF-33",
+                comment="Teste",
+                manager_approved=True,
+                approved_by="",
+                dry_run=True,
+            )
+        self.assertIn("approved_by is required", ctx.exception.message)
+
+    @patch("app.agent_os.application.services.transition_jira_issue")
+    def test_jira_transition_real(self, mock_transition) -> None:
+        self.service.authorize_jira_issue("INF-33")
+        mock_transition.return_value = {
+            "issue_key": "INF-33",
+            "transition_id": "31",
+            "transition_name": "In Progress",
+        }
+        result = self.service.jira_transition(
+            issue_ref="INF-33",
+            to_status="In Progress",
+            manager_approved=True,
+            approved_by="Ronan",
+            approval_note="iniciar execução",
+            dry_run=False,
+        )
+        self.assertFalse(result["simulated"])
+        self.assertEqual(result["transition_name"], "In Progress")
+
+    @patch("app.agent_os.application.services.list_jira_transitions")
+    def test_jira_transitions_list(self, mock_list) -> None:
+        from app.agent_os.infrastructure.jira_client import JiraTransition
+
+        self.service.authorize_jira_issue("INF-33")
+        mock_list.return_value = [JiraTransition(transition_id="11", name="In Progress")]
+        result = self.service.jira_transitions("INF-33")
+        self.assertEqual(result["issue_key"], "INF-33")
+        self.assertEqual(result["transitions"][0]["name"], "In Progress")
 
 
 if __name__ == "__main__":

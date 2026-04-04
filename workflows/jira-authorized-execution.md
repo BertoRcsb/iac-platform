@@ -9,7 +9,11 @@
    - card is authorized
    - manager approval flags are provided
    - approver identity is provided (`approved_by`)
-7. Review and learning documentation are generated
+7. Optional external Jira adapter actions:
+   - add comment
+   - transition status
+   (same approval + allowlist rules)
+8. Review and learning documentation are generated
 
 Security rule:
 - Non-authorized Jira cards are blocked from execution.

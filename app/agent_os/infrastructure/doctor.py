@@ -166,4 +166,23 @@ def run_doctor(base_dir: Path) -> list[DoctorCheck]:
                 )
             )
 
+    if jira_settings.actions_enabled:
+        checks.append(
+            DoctorCheck(
+                name="jira:actions",
+                status="OK",
+                message="Jira external actions enabled (comment/transition)",
+                suggested_action="None",
+            )
+        )
+    else:
+        checks.append(
+            DoctorCheck(
+                name="jira:actions",
+                status="INFO",
+                message="Jira external actions disabled (JIRA_ACTIONS_ENABLED=false)",
+                suggested_action="Enable only when ready to apply comments/transitions via API",
+            )
+        )
+
     return checks

@@ -33,6 +33,12 @@ I18N: dict[str, dict[str, str]] = {
         "jira_authorize_button": "Autorizar Card",
         "jira_run_button": "Ler e Planejar",
         "jira_execute_button": "Ler e Executar (se autorizado)",
+        "jira_transitions_button": "Listar Transições",
+        "jira_comment": "Comentário Jira",
+        "jira_comment_button": "Publicar Comentário",
+        "jira_transition": "Transição Jira",
+        "jira_transition_button": "Mover Status",
+        "jira_transition_name": "Nome da transição",
         "status_doctor_card": "Status / Catálogo / Doctor",
         "gate_card": "GO / NO-GO",
         "gate_button": "Validar Gate",
@@ -75,6 +81,12 @@ I18N: dict[str, dict[str, str]] = {
         "jira_authorize_button": "Authorize Card",
         "jira_run_button": "Read and Plan",
         "jira_execute_button": "Read and Execute (if authorized)",
+        "jira_transitions_button": "List Transitions",
+        "jira_comment": "Jira Comment",
+        "jira_comment_button": "Post Comment",
+        "jira_transition": "Jira Transition",
+        "jira_transition_button": "Move Status",
+        "jira_transition_name": "Transition name",
         "status_doctor_card": "Status / Catalog / Doctor",
         "gate_card": "GO / NO-GO",
         "gate_button": "Validate Gate",
@@ -217,6 +229,12 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
         <input name='issue' placeholder='https://.../browse/INF-33 or INF-33'>
         <button type='submit'>{t["jira_authorize_button"]}</button>
       </form>
+      <form method='post' action='/jira-transitions'>
+        {lang_hidden}
+        <label>{t["jira_issue"]}</label>
+        <input name='issue' placeholder='https://.../browse/INF-33 or INF-33'>
+        <button type='submit'>{t["jira_transitions_button"]}</button>
+      </form>
       <form method='post' action='/jira-run'>
         {lang_hidden}
         <label>{t["jira_issue"]}</label>
@@ -240,6 +258,32 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
         <button type='submit'>{t["jira_run_button"]}</button>
       </form>
       <p class='micro'>{t["jira_execute_button"]}</p>
+      <form method='post' action='/jira-comment'>
+        {lang_hidden}
+        <label>{t["jira_issue"]}</label>
+        <input name='issue' placeholder='INF-33'>
+        <label>{t["jira_comment"]}</label>
+        <textarea name='comment' rows='2' placeholder='Resumo da ação'></textarea>
+        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
+        <label>{t["approved_by"]}</label>
+        <input name='approved_by' placeholder='nome do gestor'>
+        <label>{t["approval_note"]}</label>
+        <input name='approval_note' placeholder='motivo da ação'>
+        <button type='submit'>{t["jira_comment_button"]}</button>
+      </form>
+      <form method='post' action='/jira-transition'>
+        {lang_hidden}
+        <label>{t["jira_issue"]}</label>
+        <input name='issue' placeholder='INF-33'>
+        <label>{t["jira_transition_name"]}</label>
+        <input name='to_status' placeholder='In Progress'>
+        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
+        <label>{t["approved_by"]}</label>
+        <input name='approved_by' placeholder='nome do gestor'>
+        <label>{t["approval_note"]}</label>
+        <input name='approval_note' placeholder='motivo da ação'>
+        <button type='submit'>{t["jira_transition_button"]}</button>
+      </form>
     </div>
 
     <div class='card'>
@@ -380,6 +424,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(page_template(err=t["jira_issue_required"], lang=lang), status=HTTPStatus.BAD_REQUEST)
                 return
             args = ["jira-authorize", "--issue", issue]
+        elif path == "/jira-transitions":
+            issue = form.get("issue", [""])[0].strip()
+            if not issue:
+                self._send(page_template(err=t["jira_issue_required"], lang=lang), status=HTTPStatus.BAD_REQUEST)
+                return
+            args = ["jira-transitions", "--issue", issue]
         elif path == "/jira-run":
             issue = form.get("issue", [""])[0].strip()
             if not issue:
@@ -401,6 +451,42 @@ class Handler(BaseHTTPRequestHandler):
                 args.append("--manager-approved")
             if "auto_approve" in form:
                 args.append("--auto-approve")
+            if approved_by:
+                args += ["--approved-by", approved_by]
+            if approval_note:
+                args += ["--approval-note", approval_note]
+        elif path == "/jira-comment":
+            issue = form.get("issue", [""])[0].strip()
+            comment_text = form.get("comment", [""])[0].strip()
+            if not issue:
+                self._send(page_template(err=t["jira_issue_required"], lang=lang), status=HTTPStatus.BAD_REQUEST)
+                return
+            if not comment_text:
+                self._send(page_template(err=t["run_input_required"], lang=lang), status=HTTPStatus.BAD_REQUEST)
+                return
+            approved_by = form.get("approved_by", [""])[0].strip()
+            approval_note = form.get("approval_note", [""])[0].strip()
+            args = ["jira-comment", "--issue", issue, "--comment", comment_text]
+            if "manager_approved" in form:
+                args.append("--manager-approved")
+            if approved_by:
+                args += ["--approved-by", approved_by]
+            if approval_note:
+                args += ["--approval-note", approval_note]
+        elif path == "/jira-transition":
+            issue = form.get("issue", [""])[0].strip()
+            to_status = form.get("to_status", [""])[0].strip()
+            if not issue:
+                self._send(page_template(err=t["jira_issue_required"], lang=lang), status=HTTPStatus.BAD_REQUEST)
+                return
+            if not to_status:
+                self._send(page_template(err=t["run_input_required"], lang=lang), status=HTTPStatus.BAD_REQUEST)
+                return
+            approved_by = form.get("approved_by", [""])[0].strip()
+            approval_note = form.get("approval_note", [""])[0].strip()
+            args = ["jira-transition", "--issue", issue, "--to-status", to_status]
+            if "manager_approved" in form:
+                args.append("--manager-approved")
             if approved_by:
                 args += ["--approved-by", approved_by]
             if approval_note:

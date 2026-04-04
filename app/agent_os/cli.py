@@ -222,6 +222,47 @@ def cmd_jira_run(service: AgentService, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_jira_transitions(service: AgentService, args: argparse.Namespace) -> None:
+    result = service.jira_transitions(args.issue)
+    emit(
+        reasoning="Transitions listing checks what Jira statuses are currently available for the issue before moving it.",
+        decision="Use one transition name exactly as listed with: ./scripts/agentctl jira-transition --issue <key> --to-status \"<name>\" ...",
+        data=result,
+    )
+
+
+def cmd_jira_comment(service: AgentService, args: argparse.Namespace) -> None:
+    result = service.jira_comment(
+        issue_ref=args.issue,
+        comment=args.comment,
+        manager_approved=args.manager_approved,
+        approved_by=args.approved_by,
+        approval_note=args.approval_note,
+        dry_run=args.dry_run,
+    )
+    emit(
+        reasoning="Jira comment action is guarded by allowlist and approval identity, with optional dry-run simulation.",
+        decision=result["next_command"],
+        data=result,
+    )
+
+
+def cmd_jira_transition(service: AgentService, args: argparse.Namespace) -> None:
+    result = service.jira_transition(
+        issue_ref=args.issue,
+        to_status=args.to_status,
+        manager_approved=args.manager_approved,
+        approved_by=args.approved_by,
+        approval_note=args.approval_note,
+        dry_run=args.dry_run,
+    )
+    emit(
+        reasoning="Jira transition action enforces allowlist, approver identity, and allowed transition policy.",
+        decision=result["next_command"],
+        data=result,
+    )
+
+
 def cmd_run(service: AgentService, args: argparse.Namespace) -> None:
     source_type, source_reference = source_from_input(args.input)
     result = service.run_pipeline(
@@ -353,6 +394,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_jira_run.add_argument("--approved-by", default="", help="Approval identity for audit trail")
     p_jira_run.add_argument("--approval-note", default="", help="Approval rationale/context")
 
+    p_jira_transitions = sub.add_parser("jira-transitions", help="List available Jira transitions for an issue")
+    p_jira_transitions.add_argument("--issue", required=True, help="Jira issue key or URL")
+
+    p_jira_comment = sub.add_parser("jira-comment", help="Create Jira comment (external action)")
+    p_jira_comment.add_argument("--issue", required=True, help="Jira issue key or URL")
+    p_jira_comment.add_argument("--comment", required=True, help="Comment text")
+    p_jira_comment.add_argument("--manager-approved", action="store_true", help="Confirm manager approval")
+    p_jira_comment.add_argument("--approved-by", default="", help="Approval identity for audit trail")
+    p_jira_comment.add_argument("--approval-note", default="", help="Approval rationale/context")
+    p_jira_comment.add_argument("--dry-run", type=bool_arg, default=None, help="Override dry-run true/false")
+
+    p_jira_transition = sub.add_parser("jira-transition", help="Transition Jira issue status (external action)")
+    p_jira_transition.add_argument("--issue", required=True, help="Jira issue key or URL")
+    p_jira_transition.add_argument("--to-status", required=True, help="Target transition name in Jira")
+    p_jira_transition.add_argument("--manager-approved", action="store_true", help="Confirm manager approval")
+    p_jira_transition.add_argument("--approved-by", default="", help="Approval identity for audit trail")
+    p_jira_transition.add_argument("--approval-note", default="", help="Approval rationale/context")
+    p_jira_transition.add_argument("--dry-run", type=bool_arg, default=None, help="Override dry-run true/false")
+
     p_run = sub.add_parser("run", help="Run end-to-end flow from input")
     p_run.add_argument("--input", required=True, help="Task input text or link")
     p_run.add_argument("--manager-approved", action="store_true", help="Allow execution and closure")
@@ -393,6 +453,9 @@ def main() -> int:
             "doctor": cmd_doctor,
             "jira-authorize": cmd_jira_authorize,
             "jira-run": cmd_jira_run,
+            "jira-transitions": cmd_jira_transitions,
+            "jira-comment": cmd_jira_comment,
+            "jira-transition": cmd_jira_transition,
             "run": cmd_run,
             "review-code": cmd_review_code,
             "debug-auto": cmd_debug_auto,
