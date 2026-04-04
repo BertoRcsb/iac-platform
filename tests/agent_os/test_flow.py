@@ -120,6 +120,36 @@ class TestAgentFlow(unittest.TestCase):
         )
         self.assertEqual(gate["gate_check"]["overall"], "GO")
 
+    def test_real_local_execution_success(self) -> None:
+        created = self.service.new_task("Pipeline failed in Sonar", "text", "inline")
+        self.service.plan_task(created["task_file"])
+        executed = self.service.execute_task(
+            created["task_file"],
+            manager_approved=True,
+            auto_approve=True,
+            approved_by="ops-manager",
+            dry_run=False,
+        )
+        self.assertEqual(executed["execution_status"], "EXECUTED_LOCAL")
+        self.assertEqual(executed["state"], "REVIEW")
+
+    def test_real_local_execution_failure_blocks_task(self) -> None:
+        created = self.service.new_task("Pipeline failed in Sonar", "text", "inline")
+        self.service.plan_task(created["task_file"])
+        payload = json.loads(Path(created["task_file"]).read_text(encoding="utf-8"))
+        payload["plan"]["validation_command"] = "false"
+        Path(created["task_file"]).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+        executed = self.service.execute_task(
+            created["task_file"],
+            manager_approved=True,
+            auto_approve=True,
+            approved_by="ops-manager",
+            dry_run=False,
+        )
+        self.assertEqual(executed["execution_status"], "FAILED_LOCAL")
+        self.assertEqual(executed["state"], "BLOCKED")
+
     def test_template_drives_category_priority_and_workflow(self) -> None:
         created = self.service.new_task(
             "Build failed after dependency update",

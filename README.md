@@ -370,6 +370,24 @@ This enforces continuous documentation and organizational learning.
 
 ---
 
+## Real Local Execution (Pilot)
+
+When `DRY_RUN=false`, execution now runs real **local** actions by category:
+- `ci-cd`: run validation command
+- `observability`: generate checklist + run validation command
+- `release`: generate release note/report + run validation command
+- `access-gcp`: register approval request + run validation command
+
+Behavior:
+- Success: task moves to `REVIEW` with `EXECUTED_LOCAL`
+- Failure: task moves to `BLOCKED` with `FAILED_LOCAL`
+
+Recommended pilot flow:
+1. `./scripts/agentctl gate-check --task <task_id> --manager-approved --approved-by "<manager>"`
+2. `./scripts/agentctl execute --task <task_id> --manager-approved --auto-approve --approved-by "<manager>" --approval-note "pilot autorizado" --dry-run false`
+
+---
+
 ## Tests
 
 Run automated tests:

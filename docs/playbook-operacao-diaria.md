@@ -21,7 +21,10 @@ Usar o sistema de agents de forma simples, segura e repetivel no dia a dia.
    - `./scripts/agentctl run --input "<demanda>" --template <template_id> --team <team_profile>`
 4. Se precisar executar:
    - `./scripts/agentctl gate-check --task <TASK_ID> --manager-approved --approved-by "<manager>"`
-   - `./scripts/agentctl execute --task <TASK_ID> --manager-approved --auto-approve --approved-by "<manager>" --approval-note "<motivo>"`
+   - Simulacao segura:
+     `./scripts/agentctl execute --task <TASK_ID> --manager-approved --auto-approve --approved-by "<manager>" --approval-note "<motivo>" --dry-run true`
+   - Piloto local real:
+     `./scripts/agentctl execute --task <TASK_ID> --manager-approved --auto-approve --approved-by "<manager>" --approval-note "<motivo>" --dry-run false`
 5. Revisao:
    - `./scripts/agentctl review --task <TASK_ID>`
 6. Aprendizado (se nao foi automatico):
