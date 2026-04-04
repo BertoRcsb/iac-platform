@@ -104,6 +104,8 @@ def cmd_execute(service: AgentService, args: argparse.Namespace) -> None:
         latest=args.latest,
         manager_approved=args.manager_approved,
         auto_approve=args.auto_approve,
+        approved_by=args.approved_by,
+        approval_note=args.approval_note,
         dry_run=dry_run,
     )
     emit(
@@ -149,6 +151,24 @@ def cmd_catalog(service: AgentService, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_gate_check(service: AgentService, args: argparse.Namespace) -> None:
+    result = service.gate_check(
+        task_ref=args.task,
+        latest=args.latest,
+        manager_approved=args.manager_approved,
+        auto_approve=args.auto_approve,
+        approved_by=args.approved_by,
+        dry_run=args.dry_run,
+    )
+    overall = result["gate_check"]["overall"]
+    decision = result["next_command"] if overall == "GO" else "Fix failing items before execution."
+    emit(
+        reasoning="GO/NO-GO checklist validates readiness, approval evidence, and execution safety before execution.",
+        decision=decision,
+        data=result,
+    )
+
+
 def cmd_doctor(service: AgentService, args: argparse.Namespace) -> None:
     checks = service.doctor()
     data = {
@@ -191,6 +211,8 @@ def cmd_jira_run(service: AgentService, args: argparse.Namespace) -> None:
         team_profile=args.team,
         manager_approved=args.manager_approved,
         auto_approve=args.auto_approve,
+        approved_by=args.approved_by,
+        approval_note=args.approval_note,
     )
     decision = result.get("next_command", "./scripts/agentctl status --latest")
     emit(
@@ -208,6 +230,8 @@ def cmd_run(service: AgentService, args: argparse.Namespace) -> None:
         source_reference=source_reference,
         manager_approved=args.manager_approved,
         auto_approve=args.auto_approve,
+        approved_by=args.approved_by,
+        approval_note=args.approval_note,
         template_id=args.template,
         team_profile=args.team,
     )
@@ -222,6 +246,7 @@ def cmd_run(service: AgentService, args: argparse.Namespace) -> None:
         "plan_steps": result["plan_steps"],
         "workflow": result.get("workflow", ""),
         "approval_required": result["approval_required"],
+        "approved_by": result.get("approved_by", ""),
         "provider": result["provider"],
         "model": result["model"],
         "template": result.get("template", ""),
@@ -286,6 +311,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_execute.add_argument("--latest", action="store_true", help="Use latest task")
     p_execute.add_argument("--manager-approved", action="store_true", help="Confirm manager approval")
     p_execute.add_argument("--auto-approve", action="store_true", help="Auto transition PLANNED->APPROVED")
+    p_execute.add_argument("--approved-by", default="", help="Approval identity for audit trail")
+    p_execute.add_argument("--approval-note", default="", help="Approval rationale/context")
     p_execute.add_argument("--dry-run", type=bool_arg, default=None, help="Override dry-run true/false")
 
     p_review = sub.add_parser("review", help="Review execution and close task")
@@ -302,6 +329,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_status.add_argument("--task", help="Task id or task.json path")
     p_status.add_argument("--latest", action="store_true", help="Use latest task")
 
+    p_gate = sub.add_parser("gate-check", help="Run GO/NO-GO checklist before execution")
+    p_gate.add_argument("--task", help="Task id or task.json path")
+    p_gate.add_argument("--latest", action="store_true", help="Use latest task")
+    p_gate.add_argument("--manager-approved", action="store_true", help="Include manager approval evidence in check")
+    p_gate.add_argument("--auto-approve", action="store_true", help="Include auto approval evidence in check")
+    p_gate.add_argument("--approved-by", default="", help="Approval identity for audit trail")
+    p_gate.add_argument("--dry-run", type=bool_arg, default=None, help="Override dry-run true/false for gate check")
+
     sub.add_parser("catalog", help="List team profiles and task templates")
     sub.add_parser("doctor", help="Run environment diagnostics")
 
@@ -315,11 +350,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_jira_run.add_argument("--team", help="Optional team profile id")
     p_jira_run.add_argument("--manager-approved", action="store_true", help="Allow execution and closure")
     p_jira_run.add_argument("--auto-approve", action="store_true", help="Auto approve execution gate")
+    p_jira_run.add_argument("--approved-by", default="", help="Approval identity for audit trail")
+    p_jira_run.add_argument("--approval-note", default="", help="Approval rationale/context")
 
     p_run = sub.add_parser("run", help="Run end-to-end flow from input")
     p_run.add_argument("--input", required=True, help="Task input text or link")
     p_run.add_argument("--manager-approved", action="store_true", help="Allow execution and closure")
     p_run.add_argument("--auto-approve", action="store_true", help="Auto approve execution gate")
+    p_run.add_argument("--approved-by", default="", help="Approval identity for audit trail")
+    p_run.add_argument("--approval-note", default="", help="Approval rationale/context")
     p_run.add_argument("--template", help="Optional team-mode template id")
     p_run.add_argument("--team", help="Optional team profile id")
 
@@ -349,6 +388,7 @@ def main() -> int:
             "review": cmd_review,
             "learn": cmd_learn,
             "status": cmd_status,
+            "gate-check": cmd_gate_check,
             "catalog": cmd_catalog,
             "doctor": cmd_doctor,
             "jira-authorize": cmd_jira_authorize,

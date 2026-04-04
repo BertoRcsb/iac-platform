@@ -4,10 +4,12 @@
 2. Card is authorized with `jira-authorize`
 3. System reads card via Jira API (`jira-run`)
 4. System generates category, risks, plan, and next action
-5. Execution only runs when:
+5. GO/NO-GO check validates readiness (`gate-check`)
+6. Execution only runs when:
    - card is authorized
    - manager approval flags are provided
-6. Review and learning documentation are generated
+   - approver identity is provided (`approved_by`)
+7. Review and learning documentation are generated
 
 Security rule:
 - Non-authorized Jira cards are blocked from execution.

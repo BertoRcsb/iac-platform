@@ -23,6 +23,8 @@ I18N: dict[str, dict[str, str]] = {
         "team_profile": "Perfil de Equipe",
         "manager_approved": "aprovado pelo gestor",
         "auto_approve": "auto aprovar",
+        "approved_by": "Aprovado por",
+        "approval_note": "Nota de aprovação",
         "run_button": "Executar",
         "run_hint": "Use template + equipe para acelerar o plano com fluxo DevOps padrão.",
         "jira_card": "Jira (Ler Card e Resolver)",
@@ -32,6 +34,8 @@ I18N: dict[str, dict[str, str]] = {
         "jira_run_button": "Ler e Planejar",
         "jira_execute_button": "Ler e Executar (se autorizado)",
         "status_doctor_card": "Status / Catálogo / Doctor",
+        "gate_card": "GO / NO-GO",
+        "gate_button": "Validar Gate",
         "task_id_optional": "Task ID (opcional)",
         "latest": "mais recente",
         "status_button": "Status",
@@ -61,6 +65,8 @@ I18N: dict[str, dict[str, str]] = {
         "team_profile": "Team Profile",
         "manager_approved": "manager approved",
         "auto_approve": "auto approve",
+        "approved_by": "Approved by",
+        "approval_note": "Approval note",
         "run_button": "Run",
         "run_hint": "Use template + team for faster planning with a standard DevOps flow.",
         "jira_card": "Jira (Read Card and Solve)",
@@ -70,6 +76,8 @@ I18N: dict[str, dict[str, str]] = {
         "jira_run_button": "Read and Plan",
         "jira_execute_button": "Read and Execute (if authorized)",
         "status_doctor_card": "Status / Catalog / Doctor",
+        "gate_card": "GO / NO-GO",
+        "gate_button": "Validate Gate",
         "task_id_optional": "Task ID (optional)",
         "latest": "latest",
         "status_button": "Status",
@@ -192,6 +200,10 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
         </select>
         <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
         <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
+        <label>{t["approved_by"]}</label>
+        <input name='approved_by' placeholder='nome do gestor'>
+        <label>{t["approval_note"]}</label>
+        <input name='approval_note' placeholder='contexto da aprovação'>
         <button type='submit'>{t["run_button"]}</button>
       </form>
       <p class='micro'>{t["run_hint"]}</p>
@@ -221,6 +233,10 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
         </select>
         <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
         <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
+        <label>{t["approved_by"]}</label>
+        <input name='approved_by' placeholder='nome do gestor'>
+        <label>{t["approval_note"]}</label>
+        <input name='approval_note' placeholder='contexto da aprovação'>
         <button type='submit'>{t["jira_run_button"]}</button>
       </form>
       <p class='micro'>{t["jira_execute_button"]}</p>
@@ -242,6 +258,21 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
       <form method='post' action='/doctor'>
         {lang_hidden}
         <button type='submit'>{t["doctor_button"]}</button>
+      </form>
+    </div>
+
+    <div class='card'>
+      <h3>{t["gate_card"]}</h3>
+      <form method='post' action='/gate-check'>
+        {lang_hidden}
+        <label>{t["task_id_optional"]}</label>
+        <input name='task' placeholder='task-...'>
+        <label><input type='checkbox' name='latest' checked> {t["latest"]}</label>
+        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
+        <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
+        <label>{t["approved_by"]}</label>
+        <input name='approved_by' placeholder='nome do gestor'>
+        <button type='submit'>{t["gate_button"]}</button>
       </form>
     </div>
 
@@ -316,6 +347,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(page_template(err=t["run_input_required"], lang=lang), status=HTTPStatus.BAD_REQUEST)
                 return
             args = ["run", "--input", input_text]
+            approved_by = form.get("approved_by", [""])[0].strip()
+            approval_note = form.get("approval_note", [""])[0].strip()
             template = form.get("template", [""])[0].strip()
             team = form.get("team", [""])[0].strip()
             if template:
@@ -326,6 +359,10 @@ class Handler(BaseHTTPRequestHandler):
                 args.append("--manager-approved")
             if "auto_approve" in form:
                 args.append("--auto-approve")
+            if approved_by:
+                args += ["--approved-by", approved_by]
+            if approval_note:
+                args += ["--approval-note", approval_note]
         elif path == "/status":
             task = form.get("task", [""])[0].strip()
             args = ["status"]
@@ -349,6 +386,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(page_template(err=t["jira_issue_required"], lang=lang), status=HTTPStatus.BAD_REQUEST)
                 return
             context = form.get("context", [""])[0].strip()
+            approved_by = form.get("approved_by", [""])[0].strip()
+            approval_note = form.get("approval_note", [""])[0].strip()
             args = ["jira-run", "--issue", issue]
             if context:
                 args += ["--context", context]
@@ -362,6 +401,24 @@ class Handler(BaseHTTPRequestHandler):
                 args.append("--manager-approved")
             if "auto_approve" in form:
                 args.append("--auto-approve")
+            if approved_by:
+                args += ["--approved-by", approved_by]
+            if approval_note:
+                args += ["--approval-note", approval_note]
+        elif path == "/gate-check":
+            task = form.get("task", [""])[0].strip()
+            approved_by = form.get("approved_by", [""])[0].strip()
+            args = ["gate-check"]
+            if task:
+                args += ["--task", task]
+            if "latest" in form:
+                args.append("--latest")
+            if "manager_approved" in form:
+                args.append("--manager-approved")
+            if "auto_approve" in form:
+                args.append("--auto-approve")
+            if approved_by:
+                args += ["--approved-by", approved_by]
         elif path == "/review-code":
             target = form.get("path", ["."])[0].strip() or "."
             args = ["review-code", "--path", target]

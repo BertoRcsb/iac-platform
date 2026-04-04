@@ -25,11 +25,13 @@ Opcional (deixar sempre ativa):
    - preencha link/chave do card (ex.: `INF-33`)
    - clique `Autorizar Card` (gate de segurança)
    - clique `Ler e Planejar` para gerar solução
+   - para executar com aprovação, preencha `Aprovado por` e `Nota de aprovação`
 3. Em `Executar Pipeline (Modo Equipe)`:
    - preencha a entrada (texto ou contexto Jira)
    - selecione template e perfil de equipe (opcional)
    - clique em `Executar`
 4. Depois rode:
+   - `GO / NO-GO` (validar gate antes de executar)
    - `Status`
    - `Revisao de Codigo`
    - `Debug Automatico` (se necessario)
@@ -62,11 +64,13 @@ Optional (always active):
    - provide issue URL/key (e.g. `INF-33`)
    - click `Authorize Card` (security gate)
    - click `Read and Plan`
+   - to execute with approval, fill `Approved by` and `Approval note`
 3. In `Run Pipeline (Team Mode)`:
    - fill input (text or Jira context)
    - select template/team profile (optional)
    - click `Run`
 4. Then use:
+   - `GO / NO-GO` (validate gate before execution)
    - `Status`
    - `Code Review`
    - `Auto Debug` (if needed)

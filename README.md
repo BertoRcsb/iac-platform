@@ -191,15 +191,18 @@ Use a single command entrypoint for the full lifecycle:
 - `./scripts/agentctl new --input "<text-or-link>"`
 - `./scripts/agentctl plan --task <task_id|path>`
 - `./scripts/agentctl route --task <task_id|path>`
-- `./scripts/agentctl execute --task <task_id|path> --manager-approved --auto-approve`
+- `./scripts/agentctl execute --task <task_id|path> --manager-approved --approved-by "<manager>" --auto-approve`
 - `./scripts/agentctl review --task <task_id|path>`
 - `./scripts/agentctl learn --task <task_id|path>`
 - `./scripts/agentctl status --task <task_id|path>`
+- `./scripts/agentctl gate-check --task <task_id|path> --manager-approved --approved-by "<manager>"`
 - `./scripts/agentctl catalog`
 - `./scripts/agentctl doctor`
 - `./scripts/agentctl jira-authorize --issue INF-33`
 - `./scripts/agentctl jira-run --issue INF-33 --context "detalhes extras" --template access-request --team devops`
+- `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops --manager-approved --approved-by "<manager>" --auto-approve`
 - `./scripts/agentctl run --input "<text-or-link>"`
+- `./scripts/agentctl run --input "<text-or-link>" --manager-approved --approved-by "<manager>" --auto-approve`
 - `./scripts/agentctl run --input "<text-or-link>" --template <template_id> --team <team_profile>`
 - `./scripts/agentctl review-code --path .`
 - `./scripts/agentctl debug-auto --command "./scripts/agentctl-test.sh" --path . --apply-refactor`
@@ -261,10 +264,14 @@ Workflow:
 2. Read card and generate solution plan:
    - `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops`
 3. Execute only if authorized + approved:
-   - `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops --manager-approved --auto-approve`
+   - `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops --manager-approved --approved-by "<manager>" --auto-approve`
 
 Security rule:
 - If card is not in allowlist, execution is blocked with suggested command.
+- If execution needs approval, `approved_by` must be informed for audit trail.
+
+GO/NO-GO command before execution:
+- `./scripts/agentctl gate-check --task <task_id> --manager-approved --approved-by "<manager-name>"`
 
 ---
 

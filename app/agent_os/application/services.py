@@ -88,6 +88,133 @@ class AgentService:
         task = self.repo.load(task_file)
         return task_file, task
 
+    def _validation_command_for(self, category: str) -> str:
+        mapping = {
+            "ci-cd": "./scripts/agentctl-test.sh",
+            "observability": "./scripts/agentctl-test.sh",
+            "access-gcp": "./scripts/agentctl doctor",
+            "release": "./scripts/agentctl doctor",
+            "documentation": "./scripts/agentctl review-code --path .",
+            "general": "./scripts/agentctl doctor",
+        }
+        return mapping.get(category, "./scripts/agentctl doctor")
+
+    def _gate_check_task(
+        self,
+        task: Task,
+        manager_approved: bool = False,
+        auto_approve: bool = False,
+        approved_by: str = "",
+        dry_run: bool | None = None,
+    ) -> dict[str, Any]:
+        effective_dry_run = self.settings.dry_run if dry_run is None else dry_run
+        approval_required = bool(task.plan.get("approval_required", True) or self.settings.require_manager_approval)
+        current_approved = bool(task.execution.get("approved", False))
+
+        items: list[dict[str, str]] = []
+
+        state_ok = task.state in {"PLANNED", "APPROVED", "EXECUTING", "REVIEW", "DONE", "BLOCKED"}
+        items.append(
+            {
+                "name": "state-ready",
+                "status": "PASS" if state_ok else "FAIL",
+                "message": f"Task state is {task.state}",
+                "suggested_action": "Run planning first until state=PLANNED",
+            }
+        )
+
+        category = str(task.classification.get("category", "")).strip()
+        priority = str(task.classification.get("priority", "")).strip()
+        class_ok = bool(category and priority)
+        items.append(
+            {
+                "name": "classification-ready",
+                "status": "PASS" if class_ok else "FAIL",
+                "message": f"category={category or 'missing'} priority={priority or 'missing'}",
+                "suggested_action": "Run: ./scripts/agentctl plan --task <task_id>",
+            }
+        )
+
+        risks = task.classification.get("risks", [])
+        risks_ok = isinstance(risks, list) and len(risks) > 0
+        items.append(
+            {
+                "name": "risks-identified",
+                "status": "PASS" if risks_ok else "FAIL",
+                "message": f"risks_count={len(risks) if isinstance(risks, list) else 0}",
+                "suggested_action": "Run plan again with enough context and risk extraction",
+            }
+        )
+
+        steps = task.plan.get("steps", [])
+        steps_ok = isinstance(steps, list) and len(steps) > 0
+        items.append(
+            {
+                "name": "plan-steps-defined",
+                "status": "PASS" if steps_ok else "FAIL",
+                "message": f"steps_count={len(steps) if isinstance(steps, list) else 0}",
+                "suggested_action": "Ensure plan generation created actionable steps",
+            }
+        )
+
+        validation_command = str(task.plan.get("validation_command", "")).strip()
+        validation_ok = bool(validation_command)
+        items.append(
+            {
+                "name": "validation-command",
+                "status": "PASS" if validation_ok else "FAIL",
+                "message": validation_command or "validation command missing",
+                "suggested_action": "Re-run planning to generate a validation command",
+            }
+        )
+
+        approval_evidence = current_approved or manager_approved or auto_approve or not approval_required
+        items.append(
+            {
+                "name": "approval-gate",
+                "status": "PASS" if approval_evidence else "FAIL",
+                "message": (
+                    "Approval present"
+                    if approval_evidence
+                    else "Manager approval required before execution"
+                ),
+                "suggested_action": f"Run: ./scripts/agentctl execute --task {task.task_id} --manager-approved --approved-by <name>",
+            }
+        )
+
+        identity_required = manager_approved or auto_approve
+        approver = approved_by.strip()
+        identity_ok = (not identity_required) or bool(approver)
+        items.append(
+            {
+                "name": "approval-identity",
+                "status": "PASS" if identity_ok else "FAIL",
+                "message": approver if approver else "approved_by missing",
+                "suggested_action": "Provide --approved-by '<manager-name>' for audit trail",
+            }
+        )
+
+        dry_status = "PASS" if effective_dry_run else "WARN"
+        dry_message = "DRY_RUN enabled (safe mode)" if effective_dry_run else "DRY_RUN disabled (real local execution)"
+        items.append(
+            {
+                "name": "execution-safety",
+                "status": dry_status,
+                "message": dry_message,
+                "suggested_action": "Set DRY_RUN=true for safer simulation if needed",
+            }
+        )
+
+        has_fail = any(item["status"] == "FAIL" for item in items)
+        overall = "NO_GO" if has_fail else "GO"
+        return {
+            "overall": overall,
+            "approval_required": approval_required,
+            "effective_dry_run": effective_dry_run,
+            "items": items,
+            "checked_at": utc_now(),
+        }
+
     def new_task(
         self,
         request: str,
@@ -177,6 +304,7 @@ class AgentService:
             "summary": str(plan.get("summary", "")),
             "steps": steps,
             "approval_required": True,
+            "validation_command": self._validation_command_for(category),
         }
         if template:
             task.plan["workflow"] = template.recommended_workflow
@@ -251,6 +379,8 @@ class AgentService:
         latest: bool = False,
         manager_approved: bool = False,
         auto_approve: bool = False,
+        approved_by: str = "",
+        approval_note: str = "",
         dry_run: bool | None = None,
     ) -> dict[str, Any]:
         start = perf_counter()
@@ -258,16 +388,22 @@ class AgentService:
         task_file, task = self._resolve_task(task_ref, latest)
 
         effective_dry_run = self.settings.dry_run if dry_run is None else dry_run
+        gate = self._gate_check_task(
+            task=task,
+            manager_approved=manager_approved,
+            auto_approve=auto_approve,
+            approved_by=approved_by,
+            dry_run=effective_dry_run,
+        )
+        task.execution["last_gate_check"] = gate
 
         if task.state == "PLANNED":
-            if auto_approve or manager_approved or not self.settings.require_manager_approval:
-                task.execution["approved"] = True
-                self._transition(task, "APPROVED", actor="manager", reason="Approval granted for execution")
-            else:
+            if not (auto_approve or manager_approved or not self.settings.require_manager_approval):
                 approval_log = {
                     "timestamp": utc_now(),
                     "status": "WAITING_FOR_MANAGER_APPROVAL",
                     "message": "Execution blocked until explicit manager approval",
+                    "required_fields": ["approved_by"],
                 }
                 task.execution.setdefault("approval_logs", []).append(approval_log)
                 self.repo.save(task, task_file)
@@ -281,8 +417,30 @@ class AgentService:
                 )
                 raise ServiceError(
                     message="Manager approval required before execution",
-                    suggested_action=f"Run: ./scripts/agentctl execute --task {task.task_id} --manager-approved --auto-approve",
+                    suggested_action=f"Run: ./scripts/agentctl execute --task {task.task_id} --manager-approved --approved-by <manager> --auto-approve",
                 )
+
+            if gate["overall"] != "GO":
+                self.repo.save(task, task_file)
+                failed = next((item for item in gate["items"] if item["status"] == "FAIL"), None)
+                message = failed["message"] if failed else "Execution gate failed"
+                suggested = failed["suggested_action"] if failed else f"Run: ./scripts/agentctl gate-check --task {task.task_id}"
+                raise ServiceError(
+                    message=f"GO/NO-GO blocked execution: {message}",
+                    suggested_action=suggested,
+                )
+            approver = approved_by.strip() or ("system-policy" if not self.settings.require_manager_approval else "manager-unknown")
+            task.execution["approved"] = True
+            task.execution["approved_by"] = approver
+            approval_log = {
+                "timestamp": utc_now(),
+                "status": "APPROVED",
+                "approved_by": approver,
+                "approval_note": approval_note.strip(),
+                "mode": "auto-approve" if auto_approve else "manager-approved",
+            }
+            task.execution.setdefault("approval_logs", []).append(approval_log)
+            self._transition(task, "APPROVED", actor="manager", reason="Approval granted for execution")
 
         if task.state not in {"APPROVED", "EXECUTING", "REVIEW", "DONE", "BLOCKED"}:
             raise ServiceError(
@@ -341,7 +499,11 @@ class AgentService:
             agent="execution",
             status=task.execution["status"],
             start=start,
-            details={"state": task.state, "dry_run": effective_dry_run},
+            details={
+                "state": task.state,
+                "dry_run": effective_dry_run,
+                "approved_by": task.execution.get("approved_by", ""),
+            },
         )
         return {
             "run_id": run_id,
@@ -350,6 +512,8 @@ class AgentService:
             "state": task.state,
             "execution_status": task.execution["status"],
             "dry_run": effective_dry_run,
+            "approved_by": task.execution.get("approved_by", ""),
+            "gate_check": gate,
             "next_command": f"./scripts/agentctl review --task {task.task_id}",
         }
 
@@ -361,7 +525,7 @@ class AgentService:
         if task.state not in {"REVIEW", "DONE", "BLOCKED"}:
             raise ServiceError(
                 message=f"Task state '{task.state}' must be REVIEW before final review",
-                suggested_action=f"Run: ./scripts/agentctl execute --task {task.task_id} --manager-approved --auto-approve",
+                suggested_action=f"Run: ./scripts/agentctl execute --task {task.task_id} --manager-approved --approved-by <manager> --auto-approve",
             )
 
         if task.state in {"DONE", "BLOCKED"}:
@@ -552,20 +716,66 @@ class AgentService:
             "priority": task.classification.get("priority"),
             "risks": task.classification.get("risks", []),
             "workflow": task.plan.get("workflow", ""),
+            "validation_command": task.plan.get("validation_command", ""),
             "provider": task.routing.get("provider"),
             "model": task.routing.get("model"),
             "approval_required": task.plan.get("approval_required", True),
+            "approved_by": task.execution.get("approved_by", ""),
             "execution_status": task.execution.get("status"),
             "review_conclusion": task.review.get("conclusion"),
             "shared_doc": task.learning.get("shared_doc"),
             "template": template.get("id", ""),
             "team_profile": team_profile.get("id", ""),
+            "last_gate_check": task.execution.get("last_gate_check", {}),
         }
 
     def catalog(self) -> dict[str, Any]:
         return {
             "team_profiles": available_team_profiles(),
             "templates": available_task_templates(),
+        }
+
+    def gate_check(
+        self,
+        task_ref: str | None,
+        latest: bool = False,
+        manager_approved: bool = False,
+        auto_approve: bool = False,
+        approved_by: str = "",
+        dry_run: bool | None = None,
+    ) -> dict[str, Any]:
+        start = perf_counter()
+        run_id = str(uuid.uuid4())
+        task_file, task = self._resolve_task(task_ref, latest)
+        gate = self._gate_check_task(
+            task=task,
+            manager_approved=manager_approved,
+            auto_approve=auto_approve,
+            approved_by=approved_by,
+            dry_run=dry_run,
+        )
+        task.execution["last_gate_check"] = gate
+        self.repo.save(task, task_file)
+        self._log_event(
+            run_id=run_id,
+            task_id=task.task_id,
+            agent="gate",
+            status=gate["overall"],
+            start=start,
+            details={"state": task.state, "overall": gate["overall"]},
+        )
+        next_command = (
+            f"./scripts/agentctl execute --task {task.task_id} --manager-approved --approved-by <manager>"
+            if gate["overall"] == "GO" and task.state == "PLANNED"
+            else f"./scripts/agentctl status --task {task.task_id}"
+        )
+        return {
+            "run_id": run_id,
+            "task_file": str(task_file),
+            "task_id": task.task_id,
+            "state": task.state,
+            "gate_check": gate,
+            "next_command": next_command,
         }
 
     def authorize_jira_issue(self, issue_ref: str) -> dict[str, Any]:
@@ -601,6 +811,8 @@ class AgentService:
         team_profile: str | None = None,
         manager_approved: bool = False,
         auto_approve: bool = False,
+        approved_by: str = "",
+        approval_note: str = "",
     ) -> dict[str, Any]:
         try:
             issue = fetch_jira_issue(issue_ref, self.jira_settings)
@@ -642,6 +854,8 @@ class AgentService:
             source_reference=issue.url,
             manager_approved=manager_approved,
             auto_approve=auto_approve,
+            approved_by=approved_by,
+            approval_note=approval_note,
             template_id=template_id,
             team_profile=team_profile,
         )
@@ -828,6 +1042,8 @@ class AgentService:
         source_reference: str,
         manager_approved: bool = False,
         auto_approve: bool = False,
+        approved_by: str = "",
+        approval_note: str = "",
         template_id: str | None = None,
         team_profile: str | None = None,
     ) -> dict[str, Any]:
@@ -855,19 +1071,27 @@ class AgentService:
             "provider": routed["provider"],
             "model": routed["model"],
             "approval_required": True,
-            "next_command": f"./scripts/agentctl execute --task {created['task_id']} --manager-approved --auto-approve",
+            "approved_by": "",
+            "next_command": f"./scripts/agentctl execute --task {created['task_id']} --manager-approved --approved-by <manager> --auto-approve",
             "template": created.get("template", ""),
             "team_profile": created.get("team_profile", ""),
         }
 
         if manager_approved or auto_approve:
-            executed = self.execute_task(task_ref, manager_approved=manager_approved, auto_approve=auto_approve)
+            executed = self.execute_task(
+                task_ref,
+                manager_approved=manager_approved,
+                auto_approve=auto_approve,
+                approved_by=approved_by,
+                approval_note=approval_note,
+            )
             reviewed = self.review_task(task_ref)
             learned = self.learn_task(task_ref)
             outcome.update(
                 {
                     "state": reviewed["state"],
                     "execution_status": executed["execution_status"],
+                    "approved_by": executed.get("approved_by", ""),
                     "review_conclusion": reviewed["conclusion"],
                     "shared_doc": learned["shared_doc"],
                     "next_command": f"./scripts/agentctl status --task {created['task_id']}",

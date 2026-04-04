@@ -70,10 +70,12 @@ class TestAgentFlow(unittest.TestCase):
             created["task_file"],
             manager_approved=True,
             auto_approve=True,
+            approved_by="qa-manager",
             dry_run=True,
         )
         self.assertEqual(executed["execution_status"], "SIMULATED")
         self.assertEqual(executed["state"], "REVIEW")
+        self.assertEqual(executed["approved_by"], "qa-manager")
 
     def test_provider_routing(self) -> None:
         created = self.service.new_task("Apply observability standard", "text", "inline")
@@ -96,6 +98,27 @@ class TestAgentFlow(unittest.TestCase):
         payload = json.loads(task_file.read_text(encoding="utf-8"))
         approval_logs = payload["execution"].get("approval_logs", [])
         self.assertGreaterEqual(len(approval_logs), 1)
+
+    def test_execute_requires_approved_by_for_audit(self) -> None:
+        created = self.service.new_task("Release to production gate", "text", "inline")
+        self.service.plan_task(created["task_file"])
+
+        with self.assertRaises(ServiceError) as ctx:
+            self.service.execute_task(created["task_file"], manager_approved=True, auto_approve=True, approved_by="")
+
+        self.assertIn("GO/NO-GO blocked execution", ctx.exception.message)
+
+    def test_gate_check_reports_go(self) -> None:
+        created = self.service.new_task("Pipeline failed in Sonar", "text", "inline")
+        self.service.plan_task(created["task_file"])
+        gate = self.service.gate_check(
+            created["task_file"],
+            manager_approved=True,
+            auto_approve=True,
+            approved_by="release-manager",
+            dry_run=True,
+        )
+        self.assertEqual(gate["gate_check"]["overall"], "GO")
 
     def test_template_drives_category_priority_and_workflow(self) -> None:
         created = self.service.new_task(
