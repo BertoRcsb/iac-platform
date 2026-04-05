@@ -64,6 +64,13 @@ I18N: dict[str, dict[str, str]] = {
         "run_input_required": "A entrada é obrigatória para executar o pipeline",
         "jira_issue_required": "Informe o link ou chave do card Jira",
         "unsupported_path": "Rota não suportada",
+        "jira_issue_placeholder": "https://.../browse/ABC-123 ou ABC-123",
+        "manager_name_placeholder": "nome do gestor",
+        "approval_note_placeholder": "contexto da aprovacao",
+        "jira_context_placeholder": "Detalhes adicionais",
+        "jira_comment_placeholder": "Resumo da acao",
+        "jira_transition_placeholder": "In Progress",
+        "task_placeholder": "task-...",
     },
     "en": {
         "title": "AgentCtl UI",
@@ -116,6 +123,13 @@ I18N: dict[str, dict[str, str]] = {
         "run_input_required": "Input is required to run pipeline",
         "jira_issue_required": "Provide Jira URL or issue key",
         "unsupported_path": "Unsupported path",
+        "jira_issue_placeholder": "https://.../browse/ABC-123 or ABC-123",
+        "manager_name_placeholder": "manager name",
+        "approval_note_placeholder": "approval context",
+        "jira_context_placeholder": "Additional details",
+        "jira_comment_placeholder": "Action summary",
+        "jira_transition_placeholder": "In Progress",
+        "task_placeholder": "task-...",
     },
 }
 
@@ -223,9 +237,9 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
         <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
         <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
         <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='nome do gestor'>
+        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
         <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='contexto da aprovação'>
+        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
         <button type='submit'>{t["run_button"]}</button>
       </form>
       <p class='micro'>{t["run_hint"]}</p>
@@ -236,21 +250,21 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
       <form method='post' action='/jira-authorize'>
         {lang_hidden}
         <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='https://.../browse/INF-33 or INF-33'>
+        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
         <button type='submit'>{t["jira_authorize_button"]}</button>
       </form>
       <form method='post' action='/jira-transitions'>
         {lang_hidden}
         <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='https://.../browse/INF-33 or INF-33'>
+        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
         <button type='submit'>{t["jira_transitions_button"]}</button>
       </form>
       <form method='post' action='/jira-run'>
         {lang_hidden}
         <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='https://.../browse/INF-33 or INF-33'>
+        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
         <label>{t["jira_context"]}</label>
-        <textarea name='context' rows='3' placeholder='Detalhes adicionais'></textarea>
+        <textarea name='context' rows='3' placeholder='{t["jira_context_placeholder"]}'></textarea>
         <label>{t["template"]}</label>
         <select name='template'>
           {template_options}
@@ -262,58 +276,58 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
         <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
         <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
         <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='nome do gestor'>
+        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
         <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='contexto da aprovação'>
+        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
         <button type='submit'>{t["jira_run_button"]}</button>
       </form>
       <p class='micro'>{t["jira_execute_button"]}</p>
       <form method='post' action='/jira-comment'>
         {lang_hidden}
         <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='INF-33'>
+        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
         <label>{t["jira_comment"]}</label>
-        <textarea name='comment' rows='2' placeholder='Resumo da ação'></textarea>
+        <textarea name='comment' rows='2' placeholder='{t["jira_comment_placeholder"]}'></textarea>
         <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
         <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='nome do gestor'>
+        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
         <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='motivo da ação'>
+        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
         <button type='submit'>{t["jira_comment_button"]}</button>
       </form>
       <form method='post' action='/jira-transition'>
         {lang_hidden}
         <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='INF-33'>
+        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
         <label>{t["jira_transition_name"]}</label>
-        <input name='to_status' placeholder='In Progress'>
+        <input name='to_status' placeholder='{t["jira_transition_placeholder"]}'>
         <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
         <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='nome do gestor'>
+        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
         <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='motivo da ação'>
+        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
         <button type='submit'>{t["jira_transition_button"]}</button>
       </form>
       <form method='post' action='/jira-comment-template'>
         {lang_hidden}
         <label>{t["jira_comment_template"]}</label>
         <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='INF-33'>
+        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
         <label>{t["jira_comment_mode"]}</label>
         <select name='mode'>
           {comment_mode_options}
         </select>
         <label>{t["task_id_optional"]}</label>
-        <input name='task' placeholder='task-...'>
+        <input name='task' placeholder='{t["task_placeholder"]}'>
         <label><input type='checkbox' name='latest'> {t["latest"]}</label>
         <label>{t["jira_context"]}</label>
-        <textarea name='extra' rows='2' placeholder='Contexto adicional'></textarea>
+        <textarea name='extra' rows='2' placeholder='{t["jira_context_placeholder"]}'></textarea>
         <label><input type='checkbox' name='post_now'> {t["jira_comment_template_post_now"]}</label>
         <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
         <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='nome do gestor'>
+        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
         <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='motivo da ação'>
+        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
         <button type='submit'>{t["jira_comment_template_button"]}</button>
       </form>
     </div>
@@ -323,7 +337,7 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
       <form method='post' action='/status'>
         {lang_hidden}
         <label>{t["task_id_optional"]}</label>
-        <input name='task' placeholder='task-...'>
+        <input name='task' placeholder='{t["task_placeholder"]}'>
         <label><input type='checkbox' name='latest' checked> {t["latest"]}</label>
         <button type='submit'>{t["status_button"]}</button>
       </form>
@@ -342,12 +356,12 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
       <form method='post' action='/gate-check'>
         {lang_hidden}
         <label>{t["task_id_optional"]}</label>
-        <input name='task' placeholder='task-...'>
+        <input name='task' placeholder='{t["task_placeholder"]}'>
         <label><input type='checkbox' name='latest' checked> {t["latest"]}</label>
         <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
         <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
         <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='nome do gestor'>
+        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
         <button type='submit'>{t["gate_button"]}</button>
       </form>
     </div>
