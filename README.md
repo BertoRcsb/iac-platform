@@ -204,6 +204,8 @@ Use a single command entrypoint for the full lifecycle:
 - `./scripts/agentctl jira-transitions --issue INF-33`
 - `./scripts/agentctl jira-comment --issue INF-33 --comment "Atualização do piloto" --manager-approved --approved-by "<manager>" --dry-run false`
 - `./scripts/agentctl jira-transition --issue INF-33 --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
+- `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path>`
+- `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path> --post --manager-approved --approved-by "<manager>" --dry-run false`
 - `./scripts/agentctl run --input "<text-or-link>"`
 - `./scripts/agentctl run --input "<text-or-link>" --manager-approved --approved-by "<manager>" --auto-approve`
 - `./scripts/agentctl run --input "<text-or-link>" --template <template_id> --team <team_profile>`
@@ -274,6 +276,8 @@ Workflow:
    - `./scripts/agentctl jira-transitions --issue INF-33`
    - `./scripts/agentctl jira-comment --issue INF-33 --comment "Pilot update" --manager-approved --approved-by "<manager>" --dry-run false`
    - `./scripts/agentctl jira-transition --issue INF-33 --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
+   - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path>`
+   - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path> --post --manager-approved --approved-by "<manager>" --dry-run false`
 
 Security rule:
 - If card is not in allowlist, execution is blocked with suggested command.

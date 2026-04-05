@@ -11,6 +11,7 @@
    - approver identity is provided (`approved_by`)
 7. Optional external Jira adapter actions:
    - add comment
+   - add comment from template mode (standardized communication)
    - transition status
    (same approval + allowlist rules)
 8. Review and learning documentation are generated

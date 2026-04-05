@@ -20,6 +20,8 @@ Usar o sistema de agents de forma simples, segura e repetivel no dia a dia.
      - `./scripts/agentctl jira-transitions --issue INF-33`
      - `./scripts/agentctl jira-comment --issue INF-33 --comment "<mensagem>" --manager-approved --approved-by "<manager>" --dry-run false`
      - `./scripts/agentctl jira-transition --issue INF-33 --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
+     - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <TASK_ID>`
+     - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <TASK_ID> --post --manager-approved --approved-by "<manager>" --dry-run false`
 3. Se quiser acelerar com template:
    - `./scripts/agentctl catalog`
    - `./scripts/agentctl run --input "<demanda>" --template <template_id> --team <team_profile>`

@@ -28,6 +28,7 @@ Opcional (deixar sempre ativa):
    - clique `Ler e Planejar` para gerar solução
    - para executar com aprovação, preencha `Aprovado por` e `Nota de aprovação`
    - opcional: use `Publicar Comentário` e `Mover Status` (exigem aprovação)
+   - opcional: use `Template de Comentário Jira` para gerar comentário padrão e publicar com auditoria
 3. Em `Executar Pipeline (Modo Equipe)`:
    - preencha a entrada (texto ou contexto Jira)
    - selecione template e perfil de equipe (opcional)
@@ -69,6 +70,7 @@ Optional (always active):
    - click `Read and Plan`
    - to execute with approval, fill `Approved by` and `Approval note`
    - optional: use `Post Comment` and `Move Status` (approval required)
+   - optional: use `Jira Comment Template` to generate standardized comments and post with audit trail
 3. In `Run Pipeline (Team Mode)`:
    - fill input (text or Jira context)
    - select template/team profile (optional)

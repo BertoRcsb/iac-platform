@@ -263,6 +263,27 @@ def cmd_jira_transition(service: AgentService, args: argparse.Namespace) -> None
     )
 
 
+def cmd_jira_comment_template(service: AgentService, args: argparse.Namespace) -> None:
+    result = service.jira_comment_template(
+        mode=args.mode,
+        issue_ref=args.issue,
+        task_ref=args.task,
+        latest_task=args.latest,
+        extra=args.extra,
+        post=args.post,
+        manager_approved=args.manager_approved,
+        approved_by=args.approved_by,
+        approval_note=args.approval_note,
+        dry_run=args.dry_run,
+    )
+    decision = result.get("next_command", "./scripts/agentctl jira-run --issue <key>")
+    emit(
+        reasoning="Template mode standardizes Jira communication with reusable structures and optional secure posting.",
+        decision=decision,
+        data=result,
+    )
+
+
 def cmd_run(service: AgentService, args: argparse.Namespace) -> None:
     source_type, source_reference = source_from_input(args.input)
     result = service.run_pipeline(
@@ -413,6 +434,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_jira_transition.add_argument("--approval-note", default="", help="Approval rationale/context")
     p_jira_transition.add_argument("--dry-run", type=bool_arg, default=None, help="Override dry-run true/false")
 
+    p_jira_comment_template = sub.add_parser("jira-comment-template", help="Build Jira comment from standard template")
+    p_jira_comment_template.add_argument("--mode", default="execution-complete", help="Template mode")
+    p_jira_comment_template.add_argument("--issue", default="", help="Jira issue key or URL")
+    p_jira_comment_template.add_argument("--task", help="Task id or task.json path")
+    p_jira_comment_template.add_argument("--latest", action="store_true", help="Use latest task")
+    p_jira_comment_template.add_argument("--extra", default="", help="Additional context text")
+    p_jira_comment_template.add_argument("--post", action="store_true", help="Post template comment via Jira adapter")
+    p_jira_comment_template.add_argument("--manager-approved", action="store_true", help="Confirm manager approval")
+    p_jira_comment_template.add_argument("--approved-by", default="", help="Approval identity for audit trail")
+    p_jira_comment_template.add_argument("--approval-note", default="", help="Approval rationale/context")
+    p_jira_comment_template.add_argument("--dry-run", type=bool_arg, default=None, help="Override dry-run true/false")
+
     p_run = sub.add_parser("run", help="Run end-to-end flow from input")
     p_run.add_argument("--input", required=True, help="Task input text or link")
     p_run.add_argument("--manager-approved", action="store_true", help="Allow execution and closure")
@@ -456,6 +489,7 @@ def main() -> int:
             "jira-transitions": cmd_jira_transitions,
             "jira-comment": cmd_jira_comment,
             "jira-transition": cmd_jira_transition,
+            "jira-comment-template": cmd_jira_comment_template,
             "run": cmd_run,
             "review-code": cmd_review_code,
             "debug-auto": cmd_debug_auto,

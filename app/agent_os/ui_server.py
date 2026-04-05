@@ -9,6 +9,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from app.agent_os.domain.jira_comment_templates import available_comment_templates
 from app.agent_os.domain.team_templates import available_task_templates, available_team_profiles
 
 I18N: dict[str, dict[str, str]] = {
@@ -39,6 +40,10 @@ I18N: dict[str, dict[str, str]] = {
         "jira_transition": "Transição Jira",
         "jira_transition_button": "Mover Status",
         "jira_transition_name": "Nome da transição",
+        "jira_comment_template": "Template de Comentário Jira",
+        "jira_comment_mode": "Modo do template",
+        "jira_comment_template_button": "Gerar Comentário",
+        "jira_comment_template_post_now": "publicar agora",
         "status_doctor_card": "Status / Catálogo / Doctor",
         "gate_card": "GO / NO-GO",
         "gate_button": "Validar Gate",
@@ -87,6 +92,10 @@ I18N: dict[str, dict[str, str]] = {
         "jira_transition": "Jira Transition",
         "jira_transition_button": "Move Status",
         "jira_transition_name": "Transition name",
+        "jira_comment_template": "Jira Comment Template",
+        "jira_comment_mode": "Template mode",
+        "jira_comment_template_button": "Build Comment",
+        "jira_comment_template_post_now": "post now",
         "status_doctor_card": "Status / Catalog / Doctor",
         "gate_card": "GO / NO-GO",
         "gate_button": "Validate Gate",
@@ -127,11 +136,11 @@ def run_agentctl(args: list[str]) -> tuple[int, str, str]:
     return proc.returncode, proc.stdout, proc.stderr
 
 
-def option_list(items: list[dict[str, object]], default_label: str) -> str:
+def option_list(items: list[dict[str, object]], default_label: str, value_key: str = "id", label_key: str = "name") -> str:
     options = [f"<option value=''>{html.escape(default_label)}</option>"]
     for item in items:
-        item_id = str(item.get("id", ""))
-        name = str(item.get("name", item_id))
+        item_id = str(item.get(value_key, ""))
+        name = str(item.get(label_key, item_id))
         options.append(f"<option value='{html.escape(item_id)}'>{html.escape(name)} ({html.escape(item_id)})</option>")
     return "\n".join(options)
 
@@ -143,6 +152,7 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
     err_block = f"<pre style='color:#b00020'>{html.escape(err)}</pre>" if err else ""
     team_options = option_list(available_team_profiles(), t["default_team_profile"])
     template_options = option_list(available_task_templates(), t["default_template"])
+    comment_mode_options = option_list(available_comment_templates(), "execution-complete", value_key="mode", label_key="title")
     pt_active = "font-weight:700;text-decoration:underline;" if lang == "pt" else ""
     en_active = "font-weight:700;text-decoration:underline;" if lang == "en" else ""
     lang_hidden = f"<input type='hidden' name='lang' value='{html.escape(lang)}'>"
@@ -283,6 +293,28 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
         <label>{t["approval_note"]}</label>
         <input name='approval_note' placeholder='motivo da ação'>
         <button type='submit'>{t["jira_transition_button"]}</button>
+      </form>
+      <form method='post' action='/jira-comment-template'>
+        {lang_hidden}
+        <label>{t["jira_comment_template"]}</label>
+        <label>{t["jira_issue"]}</label>
+        <input name='issue' placeholder='INF-33'>
+        <label>{t["jira_comment_mode"]}</label>
+        <select name='mode'>
+          {comment_mode_options}
+        </select>
+        <label>{t["task_id_optional"]}</label>
+        <input name='task' placeholder='task-...'>
+        <label><input type='checkbox' name='latest'> {t["latest"]}</label>
+        <label>{t["jira_context"]}</label>
+        <textarea name='extra' rows='2' placeholder='Contexto adicional'></textarea>
+        <label><input type='checkbox' name='post_now'> {t["jira_comment_template_post_now"]}</label>
+        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
+        <label>{t["approved_by"]}</label>
+        <input name='approved_by' placeholder='nome do gestor'>
+        <label>{t["approval_note"]}</label>
+        <input name='approval_note' placeholder='motivo da ação'>
+        <button type='submit'>{t["jira_comment_template_button"]}</button>
       </form>
     </div>
 
@@ -485,6 +517,30 @@ class Handler(BaseHTTPRequestHandler):
             approved_by = form.get("approved_by", [""])[0].strip()
             approval_note = form.get("approval_note", [""])[0].strip()
             args = ["jira-transition", "--issue", issue, "--to-status", to_status]
+            if "manager_approved" in form:
+                args.append("--manager-approved")
+            if approved_by:
+                args += ["--approved-by", approved_by]
+            if approval_note:
+                args += ["--approval-note", approval_note]
+        elif path == "/jira-comment-template":
+            issue = form.get("issue", [""])[0].strip()
+            mode = form.get("mode", ["execution-complete"])[0].strip() or "execution-complete"
+            task = form.get("task", [""])[0].strip()
+            extra = form.get("extra", [""])[0].strip()
+            approved_by = form.get("approved_by", [""])[0].strip()
+            approval_note = form.get("approval_note", [""])[0].strip()
+            args = ["jira-comment-template", "--mode", mode]
+            if issue:
+                args += ["--issue", issue]
+            if task:
+                args += ["--task", task]
+            if "latest" in form:
+                args.append("--latest")
+            if extra:
+                args += ["--extra", extra]
+            if "post_now" in form:
+                args.append("--post")
             if "manager_approved" in form:
                 args.append("--manager-approved")
             if approved_by:

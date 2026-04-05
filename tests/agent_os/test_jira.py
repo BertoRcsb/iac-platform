@@ -153,6 +153,39 @@ class TestJiraIntegration(unittest.TestCase):
         self.assertEqual(result["issue_key"], "INF-33")
         self.assertEqual(result["transitions"][0]["name"], "In Progress")
 
+    def test_jira_comment_template_preview(self) -> None:
+        self.service.authorize_jira_issue("INF-33")
+        task = self.service.new_task(
+            request="https://acme.atlassian.net/browse/INF-33\nPipeline falhou no Sonar",
+            source_type="jira-link",
+            source_reference="https://acme.atlassian.net/browse/INF-33",
+            template_id="pipeline-failure",
+            team_profile="devops",
+        )
+        self.service.plan_task(task["task_file"])
+        preview = self.service.jira_comment_template(
+            mode="analysis-start",
+            issue_ref="",
+            task_ref=task["task_file"],
+            post=False,
+            approved_by="Ronan",
+        )
+        self.assertEqual(preview["issue_key"], "INF-33")
+        self.assertIn("[AgentCtl Update]", preview["comment_preview"])
+
+    def test_jira_comment_template_post_dry_run(self) -> None:
+        self.service.authorize_jira_issue("INF-33")
+        posted = self.service.jira_comment_template(
+            mode="execution-complete",
+            issue_ref="INF-33",
+            post=True,
+            manager_approved=True,
+            approved_by="Ronan",
+            dry_run=True,
+        )
+        self.assertEqual(posted["issue_key"], "INF-33")
+        self.assertTrue(posted["simulated"])
+
 
 if __name__ == "__main__":
     unittest.main()

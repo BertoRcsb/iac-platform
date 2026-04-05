@@ -9,6 +9,7 @@ from time import perf_counter
 from typing import Any
 
 from app.agent_os.domain.classifiers import classify_task
+from app.agent_os.domain.jira_comment_templates import available_comment_templates, compose_jira_comment, normalize_comment_mode
 from app.agent_os.domain.models import Task, utc_now
 from app.agent_os.domain.state_machine import InvalidStateTransitionError, assert_transition, is_at_least
 from app.agent_os.domain.team_templates import (
@@ -161,6 +162,18 @@ class AgentService:
                 suggested_action="Provide --approved-by '<manager-name>'",
             )
         return approver or "system-policy"
+
+    def _resolve_issue_from_inputs(self, issue_ref: str, task: Task | None) -> str:
+        issue_key = extract_issue_key(issue_ref)
+        if issue_key:
+            return issue_key
+        if task is None:
+            return ""
+        source_ref = str(task.source_reference or "")
+        issue_key = extract_issue_key(source_ref)
+        if issue_key:
+            return issue_key
+        return extract_issue_key(task.request)
 
     def _gate_check_task(
         self,
@@ -809,6 +822,7 @@ class AgentService:
         return {
             "team_profiles": available_team_profiles(),
             "templates": available_task_templates(),
+            "jira_comment_templates": available_comment_templates(),
         }
 
     def gate_check(
@@ -982,6 +996,94 @@ class AgentService:
             **result,
             "next_command": f"./scripts/agentctl jira-transitions --issue {issue_key}",
         }
+
+    def jira_comment_template(
+        self,
+        mode: str,
+        issue_ref: str = "",
+        task_ref: str | None = None,
+        latest_task: bool = False,
+        extra: str = "",
+        post: bool = False,
+        manager_approved: bool = False,
+        approved_by: str = "",
+        approval_note: str = "",
+        dry_run: bool | None = None,
+    ) -> dict[str, Any]:
+        start = perf_counter()
+        run_id = str(uuid.uuid4())
+        task: Task | None = None
+        task_file = ""
+        if task_ref or latest_task:
+            task_path, task = self._resolve_task(task_ref, latest_task)
+            task_file = str(task_path)
+
+        issue_key = self._resolve_issue_from_inputs(issue_ref, task)
+        if not issue_key:
+            raise ServiceError(
+                message="Could not determine Jira issue key from inputs",
+                suggested_action="Provide --issue INF-33 or --task with Jira-linked source",
+            )
+
+        classification = task.classification if task else {}
+        plan = task.plan if task else {}
+        learning = task.learning if task else {}
+        template_mode = normalize_comment_mode(mode)
+        payload = {
+            "task_id": task.task_id if task else "N/A",
+            "state": task.state if task else "N/A",
+            "category": classification.get("category", "N/A"),
+            "priority": classification.get("priority", "N/A"),
+            "workflow": plan.get("workflow", ""),
+            "summary": plan.get("summary", ""),
+            "decision": "Execution pending review and approval gates.",
+            "risks": classification.get("risks", []),
+            "approved_by": approved_by,
+            "approval_note": approval_note,
+            "shared_doc": learning.get("shared_doc", ""),
+            "extra": extra,
+            "generated_at": utc_now(),
+        }
+        comment_text = compose_jira_comment(template_mode, payload)
+
+        if not post:
+            result = {
+                "run_id": run_id,
+                "issue_key": issue_key,
+                "mode": template_mode,
+                "task_file": task_file,
+                "comment_preview": comment_text,
+                "next_command": (
+                    f"./scripts/agentctl jira-comment --issue {issue_key} --comment \"<paste-preview>\" "
+                    "--manager-approved --approved-by <manager>"
+                ),
+            }
+            self._log_event(
+                run_id=run_id,
+                task_id=issue_key,
+                agent="jira-adapter",
+                status="TEMPLATE_PREVIEW",
+                start=start,
+                details={"mode": template_mode, "task_file": task_file},
+            )
+            return result
+
+        posted = self.jira_comment(
+            issue_ref=issue_key,
+            comment=comment_text,
+            manager_approved=manager_approved,
+            approved_by=approved_by,
+            approval_note=approval_note,
+            dry_run=dry_run,
+        )
+        posted.update(
+            {
+                "mode": template_mode,
+                "task_file": task_file,
+                "comment_preview": comment_text,
+            }
+        )
+        return posted
 
     def jira_transition(
         self,
