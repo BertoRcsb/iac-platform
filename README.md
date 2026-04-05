@@ -258,6 +258,14 @@ Configure:
    - `JIRA_API_ENABLED="true"`
    - `JIRA_ACTIONS_ENABLED="true"` (only when ready for real Jira writes)
    - `JIRA_ALLOWED_TRANSITIONS="To Do,In Progress,Done"`
+   - `JIRA_AUTO_SYNC_ON_REVIEW="true"` (optional)
+   - `JIRA_AUTO_SYNC_ON_SIMULATION="false"` (recommended)
+   - `JIRA_AUTO_SYNC_POST_COMMENT="true"`
+   - `JIRA_AUTO_SYNC_TRANSITION="true|false"`
+   - `JIRA_AUTO_SYNC_DONE_COMMENT_MODE="execution-complete"`
+   - `JIRA_AUTO_SYNC_BLOCKED_COMMENT_MODE="blocked"`
+   - `JIRA_AUTO_SYNC_DONE_TRANSITION="Done"` (optional)
+   - `JIRA_AUTO_SYNC_BLOCKED_TRANSITION=""` (optional)
    - `JIRA_BASE_URL="https://your-company.atlassian.net"`
    - `JIRA_EMAIL="your-email"`
    - `JIRA_API_TOKEN="your-token"`
@@ -278,6 +286,11 @@ Workflow:
    - `./scripts/agentctl jira-transition --issue INF-33 --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
    - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path>`
    - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path> --post --manager-approved --approved-by "<manager>" --dry-run false`
+5. Optional auto-sync on review:
+   - when enabled, task closure (`DONE/BLOCKED`) can automatically post Jira comment template and optional transition
+   - default behavior skips simulated executions unless `JIRA_AUTO_SYNC_ON_SIMULATION=true`
+   - auto-sync requires Jira actions enabled and approval identity registered in execution (`approved_by`)
+   - result is recorded in task review under `jira_sync`
 
 Security rule:
 - If card is not in allowlist, execution is blocked with suggested command.

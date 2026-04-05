@@ -41,6 +41,24 @@ class TestJiraIntegration(unittest.TestCase):
             logger=StructuredLogger(self.base_dir),
         )
 
+    def _create_review_ready_task(self, dry_run: bool = True) -> dict[str, str]:
+        task = self.service.new_task(
+            request="https://acme.atlassian.net/browse/INF-33\nPipeline falhou no Sonar",
+            source_type="jira-link",
+            source_reference="https://acme.atlassian.net/browse/INF-33",
+            template_id="pipeline-failure",
+            team_profile="devops",
+        )
+        self.service.plan_task(task["task_file"])
+        self.service.execute_task(
+            task["task_file"],
+            manager_approved=True,
+            auto_approve=True,
+            approved_by="Ronan",
+            dry_run=dry_run,
+        )
+        return task
+
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
@@ -185,6 +203,45 @@ class TestJiraIntegration(unittest.TestCase):
         )
         self.assertEqual(posted["issue_key"], "INF-33")
         self.assertTrue(posted["simulated"])
+
+    def test_review_auto_sync_disabled(self) -> None:
+        task = self._create_review_ready_task(dry_run=False)
+        reviewed = self.service.review_task(task["task_file"])
+        sync = reviewed["jira_sync"]
+        self.assertFalse(sync["enabled"])
+        self.assertEqual(sync["status"], "SKIPPED")
+        self.assertEqual(sync["reason"], "JIRA_AUTO_SYNC_ON_REVIEW=false")
+
+    def test_review_auto_sync_skips_when_simulated_and_disabled(self) -> None:
+        self.service.jira_settings.auto_sync_on_review = True
+        self.service.jira_settings.auto_sync_on_simulation = False
+        task = self._create_review_ready_task(dry_run=True)
+        reviewed = self.service.review_task(task["task_file"])
+        sync = reviewed["jira_sync"]
+        self.assertEqual(sync["status"], "SKIPPED")
+        self.assertIn("execution was simulated", sync["reason"])
+
+    @patch("app.agent_os.application.services.add_jira_comment")
+    def test_review_auto_sync_posts_comment_when_simulation_allowed(self, mock_add_comment) -> None:
+        self.service.jira_settings.auto_sync_on_review = True
+        self.service.jira_settings.auto_sync_on_simulation = True
+        self.service.jira_settings.auto_sync_post_comment = True
+        self.service.jira_settings.auto_sync_transition = False
+        self.service.authorize_jira_issue("INF-33")
+        mock_add_comment.return_value = {
+            "issue_key": "INF-33",
+            "comment_id": "10001",
+        }
+
+        task = self._create_review_ready_task(dry_run=True)
+        reviewed = self.service.review_task(task["task_file"])
+        sync = reviewed["jira_sync"]
+        self.assertEqual(sync["status"], "COMPLETED")
+        self.assertEqual(sync["issue_key"], "INF-33")
+        self.assertEqual(len(sync["actions"]), 1)
+        self.assertEqual(sync["actions"][0]["type"], "comment")
+        self.assertEqual(sync["actions"][0]["comment_id"], "10001")
+        mock_add_comment.assert_called_once()
 
 
 if __name__ == "__main__":

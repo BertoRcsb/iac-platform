@@ -175,6 +175,120 @@ class AgentService:
             return issue_key
         return extract_issue_key(task.request)
 
+    def _review_auto_sync_jira(self, task: Task) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "enabled": self.jira_settings.auto_sync_on_review,
+            "status": "SKIPPED",
+            "issue_key": "",
+            "actions": [],
+            "errors": [],
+            "reason": "",
+        }
+        if not self.jira_settings.auto_sync_on_review:
+            result["reason"] = "JIRA_AUTO_SYNC_ON_REVIEW=false"
+            return result
+        if task.state not in {"DONE", "BLOCKED"}:
+            result["reason"] = f"state={task.state} not eligible"
+            return result
+        issue_key = self._resolve_issue_from_inputs("", task)
+        if not issue_key:
+            result["reason"] = "No Jira issue key found in task context"
+            return result
+        result["issue_key"] = issue_key
+
+        was_simulated = bool(task.execution.get("dry_run", True))
+        if was_simulated and not self.jira_settings.auto_sync_on_simulation:
+            result["reason"] = "execution was simulated and auto sync on simulation is disabled"
+            return result
+        if not self.jira_settings.enabled:
+            result["reason"] = "Jira API is disabled"
+            return result
+        if not self.jira_settings.actions_enabled:
+            result["reason"] = "Jira actions are disabled"
+            return result
+
+        approver = str(task.execution.get("approved_by", "")).strip()
+        manager_approved = bool(approver) or not self.settings.require_manager_approval
+        if self.settings.require_manager_approval and not approver:
+            result["reason"] = "approved_by missing for auto sync"
+            return result
+        if not approver:
+            approver = "system-policy"
+
+        mode = self.jira_settings.auto_sync_done_comment_mode if task.state == "DONE" else self.jira_settings.auto_sync_blocked_comment_mode
+        transition = self.jira_settings.auto_sync_done_transition if task.state == "DONE" else self.jira_settings.auto_sync_blocked_transition
+        payload = {
+            "task_id": task.task_id,
+            "state": task.state,
+            "category": task.classification.get("category", "N/A"),
+            "priority": task.classification.get("priority", "N/A"),
+            "workflow": task.plan.get("workflow", ""),
+            "summary": task.plan.get("summary", ""),
+            "decision": f"Review concluded with {task.review.get('conclusion', '')}",
+            "risks": task.classification.get("risks", []),
+            "approved_by": approver,
+            "approval_note": "auto-sync review closure",
+            "shared_doc": task.learning.get("shared_doc", ""),
+            "generated_at": utc_now(),
+            "extra": "",
+        }
+        comment_text = compose_jira_comment(normalize_comment_mode(mode), payload)
+
+        if self.jira_settings.auto_sync_post_comment:
+            try:
+                posted = self.jira_comment(
+                    issue_ref=issue_key,
+                    comment=comment_text,
+                    manager_approved=manager_approved,
+                    approved_by=approver,
+                    approval_note="auto-sync review comment",
+                    dry_run=False,
+                )
+                result["actions"].append(
+                    {
+                        "type": "comment",
+                        "mode": mode,
+                        "comment_id": posted.get("comment_id", ""),
+                        "simulated": posted.get("simulated", False),
+                    }
+                )
+            except ServiceError as exc:
+                result["errors"].append(f"comment: {exc.message}")
+
+        if self.jira_settings.auto_sync_transition and transition.strip():
+            try:
+                moved = self.jira_transition(
+                    issue_ref=issue_key,
+                    to_status=transition.strip(),
+                    manager_approved=manager_approved,
+                    approved_by=approver,
+                    approval_note="auto-sync review transition",
+                    dry_run=False,
+                )
+                result["actions"].append(
+                    {
+                        "type": "transition",
+                        "to_status": moved.get("transition_name", transition.strip()),
+                        "transition_id": moved.get("transition_id", ""),
+                        "simulated": moved.get("simulated", False),
+                    }
+                )
+            except ServiceError as exc:
+                result["errors"].append(f"transition: {exc.message}")
+
+        if result["actions"] and not result["errors"]:
+            result["status"] = "COMPLETED"
+        elif result["actions"] and result["errors"]:
+            result["status"] = "PARTIAL"
+        elif result["errors"]:
+            result["status"] = "FAILED"
+        else:
+            result["status"] = "SKIPPED"
+            if not result["reason"]:
+                result["reason"] = "No auto-sync action configured"
+
+        return result
+
     def _gate_check_task(
         self,
         task: Task,
@@ -644,6 +758,9 @@ class AgentService:
         next_state = "BLOCKED" if requires_attention else "DONE"
         self._transition(task, next_state, actor="review", reason=f"Review conclusion: {conclusion}")
 
+        jira_sync = self._review_auto_sync_jira(task)
+        task.review["jira_sync"] = jira_sync
+
         self.repo.save(task, task_file)
         self._log_event(
             run_id,
@@ -664,6 +781,7 @@ class AgentService:
             "state": task.state,
             "conclusion": conclusion,
             "findings": findings,
+            "jira_sync": jira_sync,
             "next_command": f"./scripts/agentctl status --task {task.task_id}" if shared_doc else f"./scripts/agentctl learn --task {task.task_id}",
             "shared_doc": shared_doc,
         }
@@ -812,6 +930,7 @@ class AgentService:
             "approved_by": task.execution.get("approved_by", ""),
             "execution_status": task.execution.get("status"),
             "review_conclusion": task.review.get("conclusion"),
+            "jira_sync": task.review.get("jira_sync", {}),
             "shared_doc": task.learning.get("shared_doc"),
             "template": template.get("id", ""),
             "team_profile": team_profile.get("id", ""),

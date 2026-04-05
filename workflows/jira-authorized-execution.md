@@ -15,6 +15,10 @@
    - transition status
    (same approval + allowlist rules)
 8. Review and learning documentation are generated
+9. Optional auto-sync on review close:
+   - if enabled, review final state (`DONE/BLOCKED`) posts final Jira template comment
+   - optional transition can run based on final state
+   - simulated execution is skipped by default unless `JIRA_AUTO_SYNC_ON_SIMULATION=true`
 
 Security rule:
 - Non-authorized Jira cards are blocked from execution.

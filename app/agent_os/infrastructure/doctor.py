@@ -185,4 +185,23 @@ def run_doctor(base_dir: Path) -> list[DoctorCheck]:
             )
         )
 
+    if jira_settings.auto_sync_on_review:
+        checks.append(
+            DoctorCheck(
+                name="jira:auto-sync",
+                status="OK",
+                message="Auto-sync on review is enabled",
+                suggested_action="None",
+            )
+        )
+    else:
+        checks.append(
+            DoctorCheck(
+                name="jira:auto-sync",
+                status="INFO",
+                message="Auto-sync on review is disabled",
+                suggested_action="Enable JIRA_AUTO_SYNC_ON_REVIEW=true when ready",
+            )
+        )
+
     return checks

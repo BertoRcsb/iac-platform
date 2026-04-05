@@ -45,6 +45,14 @@ class JiraSettings:
     api_token: str = ""
     actions_enabled: bool = False
     allowed_transition_names: str = "To Do,In Progress,Done"
+    auto_sync_on_review: bool = False
+    auto_sync_on_simulation: bool = False
+    auto_sync_post_comment: bool = True
+    auto_sync_transition: bool = False
+    auto_sync_done_comment_mode: str = "execution-complete"
+    auto_sync_blocked_comment_mode: str = "blocked"
+    auto_sync_done_transition: str = ""
+    auto_sync_blocked_transition: str = ""
     require_issue_allowlist: bool = True
     allowlist_file: str = "config/jira-issue-allowlist.txt"
 
@@ -120,6 +128,14 @@ def load_jira_settings(base_dir: Path) -> JiraSettings:
         api_token=raw.get("JIRA_API_TOKEN", ""),
         actions_enabled=parse_bool(raw.get("JIRA_ACTIONS_ENABLED"), False),
         allowed_transition_names=raw.get("JIRA_ALLOWED_TRANSITIONS", "To Do,In Progress,Done"),
+        auto_sync_on_review=parse_bool(raw.get("JIRA_AUTO_SYNC_ON_REVIEW"), False),
+        auto_sync_on_simulation=parse_bool(raw.get("JIRA_AUTO_SYNC_ON_SIMULATION"), False),
+        auto_sync_post_comment=parse_bool(raw.get("JIRA_AUTO_SYNC_POST_COMMENT"), True),
+        auto_sync_transition=parse_bool(raw.get("JIRA_AUTO_SYNC_TRANSITION"), False),
+        auto_sync_done_comment_mode=raw.get("JIRA_AUTO_SYNC_DONE_COMMENT_MODE", "execution-complete"),
+        auto_sync_blocked_comment_mode=raw.get("JIRA_AUTO_SYNC_BLOCKED_COMMENT_MODE", "blocked"),
+        auto_sync_done_transition=raw.get("JIRA_AUTO_SYNC_DONE_TRANSITION", ""),
+        auto_sync_blocked_transition=raw.get("JIRA_AUTO_SYNC_BLOCKED_TRANSITION", ""),
         require_issue_allowlist=parse_bool(raw.get("JIRA_REQUIRE_ISSUE_ALLOWLIST"), True),
         allowlist_file=raw.get("JIRA_ISSUE_ALLOWLIST_FILE", "config/jira-issue-allowlist.txt"),
     )

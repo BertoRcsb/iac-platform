@@ -33,6 +33,8 @@ Usar o sistema de agents de forma simples, segura e repetivel no dia a dia.
      `./scripts/agentctl execute --task <TASK_ID> --manager-approved --auto-approve --approved-by "<manager>" --approval-note "<motivo>" --dry-run false`
 5. Revisao:
    - `./scripts/agentctl review --task <TASK_ID>`
+   - se `JIRA_AUTO_SYNC_ON_REVIEW=true`, o fechamento da review pode comentar/transicionar no Jira automaticamente
+   - por padrao, execucao simulada nao sincroniza (`JIRA_AUTO_SYNC_ON_SIMULATION=false`)
 6. Aprendizado (se nao foi automatico):
    - `./scripts/agentctl learn --task <TASK_ID>`
 
