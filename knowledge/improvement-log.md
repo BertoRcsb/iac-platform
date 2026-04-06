@@ -31,3 +31,11 @@ Track improvements proposed and implemented across the platform.
 ## 2026-04-03T03:48:44.340609Z - auto-debug
 - Improvement method: test-first refactor with rollback guard
 - Next action: keep expanding deterministic safe-refactor rules
+
+## 2026-04-05T05:31:15.310007Z - task-20260405-053115-https-example-atlassian-net-brow-c08fea
+- Improvement method: scientific hypothesis + evidence + reproducibility
+- Next step: refine checklist and automation based on evidence
+
+## 2026-04-05T05:31:42.286662Z - task-20260405-053142-https-example-atlassian-net-brow-4035bc
+- Improvement method: scientific hypothesis + evidence + reproducibility
+- Next step: refine checklist and automation based on evidence

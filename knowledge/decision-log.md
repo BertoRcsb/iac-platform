@@ -29,3 +29,11 @@ Record architectural and operational decisions with context and rationale.
 ## 2026-04-03T03:48:44.340836Z - auto-debug
 - Decision: accept refactor changes only when validation command remains stable
 - Rationale: prevent regressions and preserve system integrity
+
+## 2026-04-05T05:31:15.310275Z - task-20260405-053115-https-example-atlassian-net-brow-c08fea
+- Decision: Keep scientific documentation mandatory for each resolution
+- Rationale: Shared organizational learning and repeatability
+
+## 2026-04-05T05:31:42.286675Z - task-20260405-053142-https-example-atlassian-net-brow-4035bc
+- Decision: Keep scientific documentation mandatory for each resolution
+- Rationale: Shared organizational learning and repeatability

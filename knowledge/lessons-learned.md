@@ -38,3 +38,13 @@ Use this document to register patterns, mistakes avoided, successful decisions a
 - Before return code: 0
 - After return code: 0
 - Scientific doc: knowledge/shared/debug-20260403-034844-auto-debug.md
+
+## 2026-04-05T05:31:15.309541Z - task-20260405-053115-https-example-atlassian-net-brow-c08fea
+- Category: ci-cd
+- Priority: P2
+- Scientific doc: knowledge/shared/task-20260405-053115-https-example-atlassian-net-brow-c08fea-scientific-method.md
+
+## 2026-04-05T05:31:42.286580Z - task-20260405-053142-https-example-atlassian-net-brow-4035bc
+- Category: ci-cd
+- Priority: P2
+- Scientific doc: knowledge/shared/task-20260405-053142-https-example-atlassian-net-brow-4035bc-scientific-method.md

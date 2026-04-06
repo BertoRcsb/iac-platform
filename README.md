@@ -198,14 +198,14 @@ Use a single command entrypoint for the full lifecycle:
 - `./scripts/agentctl gate-check --task <task_id|path> --manager-approved --approved-by "<manager>"`
 - `./scripts/agentctl catalog`
 - `./scripts/agentctl doctor`
-- `./scripts/agentctl jira-authorize --issue INF-33`
-- `./scripts/agentctl jira-run --issue INF-33 --context "detalhes extras" --template access-request --team devops`
-- `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops --manager-approved --approved-by "<manager>" --auto-approve`
-- `./scripts/agentctl jira-transitions --issue INF-33`
-- `./scripts/agentctl jira-comment --issue INF-33 --comment "Atualização do piloto" --manager-approved --approved-by "<manager>" --dry-run false`
-- `./scripts/agentctl jira-transition --issue INF-33 --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
-- `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path>`
-- `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path> --post --manager-approved --approved-by "<manager>" --dry-run false`
+- `./scripts/agentctl jira-authorize --issue <ISSUE_KEY>`
+- `./scripts/agentctl jira-run --issue <ISSUE_KEY> --context "detalhes extras" --template access-request --team devops`
+- `./scripts/agentctl jira-run --issue <ISSUE_KEY> --template access-request --team devops --manager-approved --approved-by "<manager>" --auto-approve`
+- `./scripts/agentctl jira-transitions --issue <ISSUE_KEY>`
+- `./scripts/agentctl jira-comment --issue <ISSUE_KEY> --comment "Atualização do piloto" --manager-approved --approved-by "<manager>" --dry-run false`
+- `./scripts/agentctl jira-transition --issue <ISSUE_KEY> --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
+- `./scripts/agentctl jira-comment-template --mode execution-complete --issue <ISSUE_KEY> --task <task_id|path>`
+- `./scripts/agentctl jira-comment-template --mode execution-complete --issue <ISSUE_KEY> --task <task_id|path> --post --manager-approved --approved-by "<manager>" --dry-run false`
 - `./scripts/agentctl run --input "<text-or-link>"`
 - `./scripts/agentctl run --input "<text-or-link>" --manager-approved --approved-by "<manager>" --auto-approve`
 - `./scripts/agentctl run --input "<text-or-link>" --template <template_id> --team <team_profile>`
@@ -275,17 +275,17 @@ Configure:
 
 Workflow:
 1. Authorize card:
-   - `./scripts/agentctl jira-authorize --issue INF-33`
+   - `./scripts/agentctl jira-authorize --issue <ISSUE_KEY>`
 2. Read card and generate solution plan:
-   - `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops`
+   - `./scripts/agentctl jira-run --issue <ISSUE_KEY> --template access-request --team devops`
 3. Execute only if authorized + approved:
-   - `./scripts/agentctl jira-run --issue INF-33 --template access-request --team devops --manager-approved --approved-by "<manager>" --auto-approve`
+   - `./scripts/agentctl jira-run --issue <ISSUE_KEY> --template access-request --team devops --manager-approved --approved-by "<manager>" --auto-approve`
 4. Optional external adapter actions (comment/transition):
-   - `./scripts/agentctl jira-transitions --issue INF-33`
-   - `./scripts/agentctl jira-comment --issue INF-33 --comment "Pilot update" --manager-approved --approved-by "<manager>" --dry-run false`
-   - `./scripts/agentctl jira-transition --issue INF-33 --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
-   - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path>`
-   - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <task_id|path> --post --manager-approved --approved-by "<manager>" --dry-run false`
+   - `./scripts/agentctl jira-transitions --issue <ISSUE_KEY>`
+   - `./scripts/agentctl jira-comment --issue <ISSUE_KEY> --comment "Pilot update" --manager-approved --approved-by "<manager>" --dry-run false`
+   - `./scripts/agentctl jira-transition --issue <ISSUE_KEY> --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
+   - `./scripts/agentctl jira-comment-template --mode execution-complete --issue <ISSUE_KEY> --task <task_id|path>`
+   - `./scripts/agentctl jira-comment-template --mode execution-complete --issue <ISSUE_KEY> --task <task_id|path> --post --manager-approved --approved-by "<manager>" --dry-run false`
 5. Optional auto-sync on review:
    - when enabled, task closure (`DONE/BLOCKED`) can automatically post Jira comment template and optional transition
    - default behavior skips simulated executions unless `JIRA_AUTO_SYNC_ON_SIMULATION=true`
@@ -411,6 +411,13 @@ Behavior:
 Recommended pilot flow:
 1. `./scripts/agentctl gate-check --task <task_id> --manager-approved --approved-by "<manager>"`
 2. `./scripts/agentctl execute --task <task_id> --manager-approved --auto-approve --approved-by "<manager>" --approval-note "pilot autorizado" --dry-run false`
+3. One-command local pilot for authorized card:
+   - `./scripts/pilot-authorized-card.sh <ISSUE_KEY> "descrição da demanda"`
+
+Environment approval checklist generator:
+- `./scripts/generate-env-approval-checklist.sh <regression|prerelease|stage|preprod|prod> <task_id>`
+- Specification:
+  `specs/deployment-gates/environment-approval-checklists.md`
 
 ---
 
@@ -428,6 +435,10 @@ Covered flow tests:
 - approval log registration
 - code review risk detection
 - debug auto rollback/refactor validation
+
+CI on GitHub:
+- `.github/workflows/agentctl-ci.yml`
+- Runs `py_compile`, test suite, and doctor report on `push/pull_request` to `main`
 
 ---
 

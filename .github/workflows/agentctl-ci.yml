@@ -1,0 +1,34 @@
+name: agentctl-ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile Python modules
+        run: |
+          python3 -m py_compile app/agent_os/cli.py
+          python3 -m py_compile app/agent_os/ui_server.py
+          python3 -m py_compile app/agent_os/application/services.py
+          python3 -m py_compile app/agent_os/infrastructure/config.py
+          python3 -m py_compile app/agent_os/infrastructure/doctor.py
+
+      - name: Run test suite
+        run: ./scripts/agentctl-test.sh
+
+      - name: Run doctor (informational)
+        run: ./scripts/agentctl doctor

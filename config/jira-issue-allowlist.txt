@@ -1,3 +1,6 @@
 # Authorized Jira issue keys for execution.
 # One key per line, e.g.:
 # INF-33
+OPS-101
+OPS-102
+INF-33

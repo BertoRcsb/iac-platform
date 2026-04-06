@@ -14,14 +14,16 @@ Usar o sistema de agents de forma simples, segura e repetivel no dia a dia.
 1. Entrada da demanda:
    - `./scripts/agentctl run --input "<demanda>"`
 2. Se vier de Jira:
-   - `./scripts/agentctl jira-authorize --issue INF-33`
-   - `./scripts/agentctl jira-run --issue INF-33 --template <template_id> --team <team_profile>`
+   - `./scripts/agentctl jira-authorize --issue <ISSUE_KEY>`
+   - `./scripts/agentctl jira-run --issue <ISSUE_KEY> --template <template_id> --team <team_profile>`
+   - se Jira API ainda estiver desabilitada, use:
+     `./scripts/agentctl run --input "https://.../browse/<ISSUE_KEY>\n<contexto>" --template <template_id> --team <team_profile>`
    - (Opcional) Adaptador externo Jira:
-     - `./scripts/agentctl jira-transitions --issue INF-33`
-     - `./scripts/agentctl jira-comment --issue INF-33 --comment "<mensagem>" --manager-approved --approved-by "<manager>" --dry-run false`
-     - `./scripts/agentctl jira-transition --issue INF-33 --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
-     - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <TASK_ID>`
-     - `./scripts/agentctl jira-comment-template --mode execution-complete --issue INF-33 --task <TASK_ID> --post --manager-approved --approved-by "<manager>" --dry-run false`
+     - `./scripts/agentctl jira-transitions --issue <ISSUE_KEY>`
+     - `./scripts/agentctl jira-comment --issue <ISSUE_KEY> --comment "<mensagem>" --manager-approved --approved-by "<manager>" --dry-run false`
+     - `./scripts/agentctl jira-transition --issue <ISSUE_KEY> --to-status "In Progress" --manager-approved --approved-by "<manager>" --dry-run false`
+     - `./scripts/agentctl jira-comment-template --mode execution-complete --issue <ISSUE_KEY> --task <TASK_ID>`
+     - `./scripts/agentctl jira-comment-template --mode execution-complete --issue <ISSUE_KEY> --task <TASK_ID> --post --manager-approved --approved-by "<manager>" --dry-run false`
 3. Se quiser acelerar com template:
    - `./scripts/agentctl catalog`
    - `./scripts/agentctl run --input "<demanda>" --template <template_id> --team <team_profile>`
@@ -37,6 +39,8 @@ Usar o sistema de agents de forma simples, segura e repetivel no dia a dia.
    - por padrao, execucao simulada nao sincroniza (`JIRA_AUTO_SYNC_ON_SIMULATION=false`)
 6. Aprendizado (se nao foi automatico):
    - `./scripts/agentctl learn --task <TASK_ID>`
+7. Piloto rapido completo (tudo em um comando, local e seguro):
+   - `./scripts/pilot-authorized-card.sh <ISSUE_KEY> "<demanda>"`
 
 ## Revisao de codigo e debug automatico
 1. Revisar riscos de codigo:
@@ -78,3 +82,5 @@ Cada resolucao precisa registrar:
    - `outputs/reports/agentctl-runs.ndjson`
 3. Conferir aprendizado compartilhado:
    - `knowledge/shared/`
+4. Gerar checklist de aprovacao por ambiente:
+   - `./scripts/generate-env-approval-checklist.sh stage <TASK_ID>`

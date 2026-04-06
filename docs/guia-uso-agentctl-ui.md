@@ -22,7 +22,7 @@ Opcional (deixar sempre ativa):
 ### 3) Uso rapido
 1. Clique em `Catalogo` para ver templates e perfis.
 2. Em `Jira (Ler Card e Resolver)`:
-   - preencha link/chave do card (ex.: `INF-33`)
+   - preencha link/chave do card (ex.: `<ISSUE_KEY>`)
    - clique `Autorizar Card` (gate de segurança)
    - clique `Listar Transições` para ver status válidos
    - clique `Ler e Planejar` para gerar solução
@@ -64,7 +64,7 @@ Optional (always active):
 ### 3) Quick usage
 1. Click `Catalog` to list team templates and profiles.
 2. In `Jira (Read Card and Solve)`:
-   - provide issue URL/key (e.g. `INF-33`)
+   - provide issue URL/key (e.g. `<ISSUE_KEY>`)
    - click `Authorize Card` (security gate)
    - click `List Transitions` to inspect valid Jira statuses
    - click `Read and Plan`
