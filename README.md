@@ -2,6 +2,9 @@
 
 AI-driven platform governance repository for infrastructure, observability, task orchestration, and controlled delivery workflows.
 
+Quick overview:
+- `README-GERAL.md` (simple guide: what it is, how to use, and what is missing for 100% go-live)
+
 ---
 
 ## Purpose
@@ -195,6 +198,8 @@ Use a single command entrypoint for the full lifecycle:
 - `./scripts/agentctl review --task <task_id|path>`
 - `./scripts/agentctl learn --task <task_id|path>`
 - `./scripts/agentctl status --task <task_id|path>`
+- `./scripts/agentctl spec-pack --task <task_id|path>`
+- `./scripts/agentctl spec-analyze --task <task_id|path>`
 - `./scripts/agentctl gate-check --task <task_id|path> --manager-approved --approved-by "<manager>"`
 - `./scripts/agentctl catalog`
 - `./scripts/agentctl doctor`
@@ -218,6 +223,11 @@ Each command outputs:
 
 And includes task data payload for observability.
 
+Spec-driven note:
+- `run` now auto-generates a spec pack (`spec.md`, `plan.md`, `tasks.md`, checklist) under `specs/features/`.
+- You can regenerate manually with `./scripts/agentctl spec-pack --task <task_id>`.
+- Validate readiness with `./scripts/agentctl spec-analyze --task <task_id>`.
+
 ---
 
 ## Web UI (Simple)
@@ -240,6 +250,8 @@ Available actions:
 
 Usage guide for team onboarding:
 - `docs/guia-uso-agentctl-ui.md`
+- Practical quick guide:
+  `docs/guia-web-pratico.md`
 
 Keep UI always active (background service):
 - `./scripts/agentctl-ui-service.sh start`
@@ -322,6 +334,39 @@ Current team profiles:
 - `sre`
 - `devops`
 - `security`
+
+---
+
+## Spec-Driven Mode (Spec Kit Inspired)
+
+Reference approach:
+- https://github.com/github/spec-kit.git
+- https://github.github.com/spec-kit/quickstart.html
+
+Mapping to this project:
+1. Specify (`what/why`): `./scripts/agentctl new --input "<demanda>"` or `run`
+2. Clarify: refine input/context and rerun `plan`
+3. Plan: `./scripts/agentctl plan --task <task_id>`
+4. Spec pack: `./scripts/agentctl spec-pack --task <task_id>`
+5. Spec quality gate: `./scripts/agentctl spec-analyze --task <task_id>`
+6. Route/execute/review/learn:
+   - `route`
+   - `gate-check`
+   - `execute`
+   - `review`
+   - `learn`
+
+Generated artifacts:
+- `specs/features/<NNN-feature>/spec.md`
+- `specs/features/<NNN-feature>/plan.md`
+- `specs/features/<NNN-feature>/tasks.md`
+- `specs/features/<NNN-feature>/checklists/spec-quality.md`
+
+Clean Architecture + Clean Code rules enforced in artifacts:
+- explicit domain/application/infrastructure boundaries
+- approval gates and audit trail mandatory
+- local-first validation before external actions
+- reproducible steps and testable acceptance criteria
 
 ---
 
