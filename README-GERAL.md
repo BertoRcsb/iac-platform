@@ -61,6 +61,5 @@ Este repositorio foi criado para dar um fluxo unico e seguro para demandas de pl
 ## Documentos importantes
 - README tecnico completo: `README.md`
 - guia pratico web: `docs/guia-web-pratico.md`
-- playbook diario: `docs/playbook-operacao-diaria.md`
+- playbook diario: `docs/daily-operations.md`
 - integracao spec-kit: `docs/spec-kit-integracao.md`
-

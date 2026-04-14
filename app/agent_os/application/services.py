@@ -11,6 +11,14 @@ from typing import Any
 from app.agent_os.domain.classifiers import classify_task
 from app.agent_os.domain.jira_comment_templates import available_comment_templates, compose_jira_comment, normalize_comment_mode
 from app.agent_os.domain.models import Task, utc_now
+from app.agent_os.domain.spec_kit_templates import (
+    SpecPackInput,
+    render_plan_md,
+    render_spec_checklist_md,
+    render_spec_md,
+    render_tasks_md,
+    required_spec_sections,
+)
 from app.agent_os.domain.state_machine import InvalidStateTransitionError, assert_transition, is_at_least
 from app.agent_os.domain.team_templates import (
     available_task_templates,
@@ -41,6 +49,7 @@ from app.agent_os.infrastructure.jira_client import (
 from app.agent_os.infrastructure.llm_adapters import RuleBasedLLMAdapter
 from app.agent_os.infrastructure.logging import RunEvent, StructuredLogger
 from app.agent_os.infrastructure.provider_router import RoutingDecision, decide_provider
+from app.agent_os.infrastructure.spec_repo import SpecPackRepository
 
 
 @dataclass
@@ -59,6 +68,7 @@ class AgentService:
         jira_settings: JiraSettings,
         llm: RuleBasedLLMAdapter,
         logger: StructuredLogger,
+        spec_repo: SpecPackRepository | None = None,
     ) -> None:
         self.base_dir = base_dir
         self.repo = repo
@@ -67,6 +77,7 @@ class AgentService:
         self.jira_settings = jira_settings
         self.llm = llm
         self.logger = logger
+        self.spec_repo = spec_repo or SpecPackRepository(base_dir)
 
     def _log_event(self, run_id: str, task_id: str, agent: str, status: str, start: float, details: dict[str, Any]) -> None:
         duration_ms = int((perf_counter() - start) * 1000)
@@ -915,6 +926,7 @@ class AgentService:
         task_file, task = self._resolve_task(task_ref, latest)
         template = (task.context or {}).get("template") if isinstance(task.context, dict) else {}
         team_profile = (task.context or {}).get("team_profile") if isinstance(task.context, dict) else {}
+        spec_pack = (task.context or {}).get("spec_pack") if isinstance(task.context, dict) else {}
         return {
             "task_file": str(task_file),
             "task_id": task.task_id,
@@ -934,7 +946,160 @@ class AgentService:
             "shared_doc": task.learning.get("shared_doc"),
             "template": template.get("id", ""),
             "team_profile": team_profile.get("id", ""),
+            "spec_pack": spec_pack if isinstance(spec_pack, dict) else {},
             "last_gate_check": task.execution.get("last_gate_check", {}),
+        }
+
+    def spec_pack_task(self, task_ref: str | None, latest: bool = False, feature_name: str = "") -> dict[str, Any]:
+        start = perf_counter()
+        run_id = str(uuid.uuid4())
+        task_file, task = self._resolve_task(task_ref, latest)
+
+        if not is_at_least(task.state, "PLANNED"):
+            raise ServiceError(
+                message=f"Task state '{task.state}' must be PLANNED before generating spec pack",
+                suggested_action=f"Run: ./scripts/agentctl plan --task {task.task_id}",
+            )
+
+        hint = feature_name.strip() or task.request.splitlines()[0]
+        feature_dir = self.spec_repo.create_feature_dir(hint)
+        spec_input = SpecPackInput(
+            task_id=task.task_id,
+            request=task.request,
+            state=task.state,
+            category=str(task.classification.get("category", "general")),
+            priority=str(task.classification.get("priority", "P3")),
+            risks=[str(item) for item in task.classification.get("risks", []) if isinstance(item, str)],
+            plan_summary=str(task.plan.get("summary", "")),
+            plan_steps=[str(item) for item in task.plan.get("steps", []) if isinstance(item, str)],
+            workflow=str(task.plan.get("workflow", "")),
+            validation_command=str(task.plan.get("validation_command", "")),
+            source_reference=task.source_reference,
+        )
+
+        docs = {
+            "spec.md": render_spec_md(feature_dir.name, spec_input),
+            "plan.md": render_plan_md(feature_dir.name, spec_input),
+            "tasks.md": render_tasks_md(feature_dir.name, spec_input),
+            "checklists/spec-quality.md": render_spec_checklist_md(),
+        }
+        written = self.spec_repo.write_documents(feature_dir, docs)
+
+        spec_content = docs["spec.md"]
+        missing_sections = [item for item in required_spec_sections() if item not in spec_content]
+        quality_status = "PASS" if not missing_sections else "WARN"
+
+        task.context["spec_pack"] = {
+            "feature": feature_dir.name,
+            "path": str(feature_dir.relative_to(self.base_dir)),
+            "documents": written,
+            "quality_status": quality_status,
+            "missing_sections": missing_sections,
+            "generated_at": utc_now(),
+        }
+        self.repo.save(task, task_file)
+
+        self._log_event(
+            run_id=run_id,
+            task_id=task.task_id,
+            agent="spec",
+            status="GENERATED",
+            start=start,
+            details={
+                "feature": feature_dir.name,
+                "path": str(feature_dir.relative_to(self.base_dir)),
+                "quality_status": quality_status,
+                "missing_sections": missing_sections,
+            },
+        )
+        return {
+            "run_id": run_id,
+            "task_file": str(task_file),
+            "task_id": task.task_id,
+            "state": task.state,
+            "feature": feature_dir.name,
+            "spec_pack_path": str(feature_dir.relative_to(self.base_dir)),
+            "documents": written,
+            "quality_status": quality_status,
+            "missing_sections": missing_sections,
+            "next_command": f"./scripts/agentctl route --task {task.task_id}",
+        }
+
+    def spec_analyze_task(self, task_ref: str | None, latest: bool = False) -> dict[str, Any]:
+        task_file, task = self._resolve_task(task_ref, latest)
+        spec_pack = (task.context or {}).get("spec_pack", {})
+        if not isinstance(spec_pack, dict) or not spec_pack.get("path"):
+            raise ServiceError(
+                message="Spec pack not found in task context",
+                suggested_action=f"Run: ./scripts/agentctl spec-pack --task {task.task_id}",
+            )
+
+        base_path = self.base_dir / str(spec_pack["path"])
+        checks: list[dict[str, str]] = []
+
+        def add_check(name: str, passed: bool, message: str, action: str) -> None:
+            checks.append(
+                {
+                    "name": name,
+                    "status": "PASS" if passed else "FAIL",
+                    "message": message,
+                    "suggested_action": action,
+                }
+            )
+
+        required_files = ["spec.md", "plan.md", "tasks.md", "checklists/spec-quality.md"]
+        for rel in required_files:
+            p = base_path / rel
+            add_check(
+                name=f"file:{rel}",
+                passed=p.exists(),
+                message="present" if p.exists() else "missing",
+                action=f"Regenerate: ./scripts/agentctl spec-pack --task {task.task_id}",
+            )
+
+        spec_path = base_path / "spec.md"
+        spec_content = spec_path.read_text(encoding="utf-8") if spec_path.exists() else ""
+        missing_sections = [item for item in required_spec_sections() if item not in spec_content]
+        add_check(
+            name="spec:required-sections",
+            passed=not missing_sections,
+            message="All required sections present" if not missing_sections else f"Missing: {', '.join(missing_sections)}",
+            action="Update spec.md with missing sections and rerun spec-analyze",
+        )
+
+        plan_path = base_path / "plan.md"
+        plan_content = plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""
+        add_check(
+            name="plan:clean-architecture",
+            passed="## Clean Architecture Boundaries" in plan_content,
+            message="Clean Architecture section found" if "## Clean Architecture Boundaries" in plan_content else "Clean Architecture section missing",
+            action="Regenerate plan.md using spec-pack template",
+        )
+
+        tasks_path = base_path / "tasks.md"
+        tasks_content = tasks_path.read_text(encoding="utf-8") if tasks_path.exists() else ""
+        add_check(
+            name="tasks:actionable-items",
+            passed="- [ ]" in tasks_content,
+            message="Actionable checklist found" if "- [ ]" in tasks_content else "No actionable checklist items",
+            action="Update tasks.md with executable checklist items",
+        )
+
+        has_fail = any(item["status"] == "FAIL" for item in checks)
+        overall = "NO_GO" if has_fail else "GO"
+        next_command = (
+            f"./scripts/agentctl route --task {task.task_id}"
+            if overall == "GO"
+            else f"./scripts/agentctl spec-pack --task {task.task_id}"
+        )
+        return {
+            "task_file": str(task_file),
+            "task_id": task.task_id,
+            "state": task.state,
+            "spec_pack_path": str(spec_pack["path"]),
+            "overall": overall,
+            "checks": checks,
+            "next_command": next_command,
         }
 
     def catalog(self) -> dict[str, Any]:
@@ -1531,6 +1696,7 @@ class AgentService:
         task_ref = created["task_file"]
 
         planned = self.plan_task(task_ref)
+        spec_pack = self.spec_pack_task(task_ref)
         routed = self.route_task(task_ref)
 
         outcome: dict[str, Any] = {
@@ -1542,6 +1708,8 @@ class AgentService:
             "risks": planned["risks"],
             "plan_steps": planned["plan_steps"],
             "workflow": planned.get("workflow", ""),
+            "spec_pack_path": spec_pack["spec_pack_path"],
+            "spec_pack_quality": spec_pack["quality_status"],
             "provider": routed["provider"],
             "model": routed["model"],
             "approval_required": True,

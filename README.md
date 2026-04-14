@@ -249,7 +249,7 @@ Available actions:
 - auto debug/refactor
 
 Usage guide for team onboarding:
-- `docs/guia-uso-agentctl-ui.md`
+- `docs/ui-guide.md`
 - Practical quick guide:
   `docs/guia-web-pratico.md`
 
@@ -490,6 +490,6 @@ CI on GitHub:
 ## Daily Playbook
 
 Short operational guide for team usage:
-- `docs/playbook-operacao-diaria.md`
+- `docs/daily-operations.md`
 
 No deployment or cloud provisioning is executed by this flow.

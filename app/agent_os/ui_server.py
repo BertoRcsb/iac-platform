@@ -52,6 +52,9 @@ I18N: dict[str, dict[str, str]] = {
         "status_button": "Status",
         "catalog_button": "Catálogo",
         "doctor_button": "Doctor",
+        "spec_pack_button": "Gerar Spec Pack",
+        "spec_analyze_button": "Analisar Spec Pack",
+        "feature_name_optional": "Nome da Feature (opcional)",
         "code_review_card": "Revisão de Código",
         "path": "Caminho",
         "review_button": "Revisar Código",
@@ -71,6 +74,11 @@ I18N: dict[str, dict[str, str]] = {
         "jira_comment_placeholder": "Resumo da acao",
         "jira_transition_placeholder": "In Progress",
         "task_placeholder": "task-...",
+        "quick_guide_title": "Guia Rapido",
+        "quick_guide_text": "1) Executar Pipeline  2) Status (pegar task_id)  3) Gerar Spec Pack  4) Analisar Spec Pack  5) Gate e execucao com aprovacao",
+        "advanced_panel": "Acoes avancadas",
+        "logo_note": "Emblema conceitual integrado (nao oficial)",
+        "essential_flow": "Fluxo essencial",
     },
     "en": {
         "title": "AgentCtl UI",
@@ -111,6 +119,9 @@ I18N: dict[str, dict[str, str]] = {
         "status_button": "Status",
         "catalog_button": "Catalog",
         "doctor_button": "Doctor",
+        "spec_pack_button": "Generate Spec Pack",
+        "spec_analyze_button": "Analyze Spec Pack",
+        "feature_name_optional": "Feature Name (optional)",
         "code_review_card": "Code Review",
         "path": "Path",
         "review_button": "Review Code",
@@ -130,6 +141,11 @@ I18N: dict[str, dict[str, str]] = {
         "jira_comment_placeholder": "Action summary",
         "jira_transition_placeholder": "In Progress",
         "task_placeholder": "task-...",
+        "quick_guide_title": "Quick Guide",
+        "quick_guide_text": "1) Run Pipeline  2) Status (get task_id)  3) Generate Spec Pack  4) Analyze Spec Pack  5) Gate and execute with approval",
+        "advanced_panel": "Advanced actions",
+        "logo_note": "Integrated conceptual emblem (unofficial)",
+        "essential_flow": "Essential flow",
     },
 }
 
@@ -163,7 +179,7 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
     lang = normalize_lang(lang)
     t = I18N[lang]
     output_block = f"<pre>{html.escape(output)}</pre>" if output else ""
-    err_block = f"<pre style='color:#b00020'>{html.escape(err)}</pre>" if err else ""
+    err_block = f"<pre class='error'>{html.escape(err)}</pre>" if err else ""
     team_options = option_list(available_team_profiles(), t["default_team_profile"])
     template_options = option_list(available_task_templates(), t["default_template"])
     comment_mode_options = option_list(available_comment_templates(), "execution-complete", value_key="mode", label_key="title")
@@ -176,224 +192,294 @@ def page_template(output: str = "", err: str = "", lang: str = "pt") -> str:
   <meta charset='utf-8'>
   <title>{t["title"]}</title>
   <style>
+    :root {{
+      --bg-a: #0a1220;
+      --bg-b: #0f1c31;
+      --card: #12243d;
+      --line: #2a456c;
+      --text: #e6edf8;
+      --muted: #9db1cc;
+      --accent: #3f9cff;
+      --accent-2: #2f7dd0;
+    }}
     body {{
       font-family: "Space Grotesk", "Work Sans", "Segoe UI", sans-serif;
       margin: 0;
-      background: radial-gradient(circle at 0% 0%, #eef5ff, #f9fafc 48%, #fff 100%);
-      color: #0f172a;
+      background: radial-gradient(circle at 15% 0%, var(--bg-b), var(--bg-a) 55%, #060b13 100%);
+      color: var(--text);
     }}
-    .container {{ max-width: 1120px; margin: 20px auto; padding: 0 16px; }}
-    h1 {{ margin-top: 0; }}
-    .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
+    .container {{ max-width: 1080px; margin: 24px auto; padding: 0 16px; }}
+    .top {{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }}
+    .brand {{ display:flex; align-items:center; gap:12px; }}
+    .brand h1 {{ margin:0; font-size:25px; }}
+    .brand p {{ margin:2px 0 0; color:var(--muted); font-size:13px; }}
+    .lang {{ font-size:13px; color:var(--muted); }}
+    .lang a {{ color:#d2e5ff; }}
+    .grid {{ display:grid; grid-template-columns: 1.3fr 1fr; gap:14px; }}
+    .stack {{ display:grid; gap:14px; }}
     .card {{
-      border: 1px solid #dbe2ea;
+      border: 1px solid var(--line);
+      border-radius: 12px;
       padding: 12px;
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.86);
-      backdrop-filter: blur(2px);
-      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
+      background: linear-gradient(160deg, rgba(26, 45, 74, 0.92), rgba(19, 37, 62, 0.9));
+      box-shadow: 0 14px 28px rgba(0,0,0,0.28);
     }}
-    label {{ display: block; margin: 6px 0 2px; font-size: 13px; }}
-    input, textarea, select {{ width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #c9d5e3; border-radius: 8px; }}
+    h3 {{ margin:0 0 8px; }}
+    label {{ display:block; margin:7px 0 3px; font-size:12px; color:var(--muted); }}
+    input, textarea, select {{
+      width:100%;
+      padding:9px;
+      box-sizing:border-box;
+      border:1px solid #2f4d76;
+      border-radius:8px;
+      background:#0f2038;
+      color:var(--text);
+    }}
+    input::placeholder, textarea::placeholder {{ color:#7992b2; }}
     button {{
-      margin-top: 8px;
-      padding: 8px 12px;
-      cursor: pointer;
-      border: 1px solid #1f4f8a;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #1f4f8a, #2f6bb4);
-      color: #fff;
-      font-weight: 600;
+      margin-top:10px;
+      padding:8px 12px;
+      cursor:pointer;
+      border:1px solid #3f8fdf;
+      border-radius:8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color:#fff;
+      font-weight:600;
     }}
-    .out {{ margin-top: 18px; }}
-    pre {{ white-space: pre-wrap; background: #0f172a; color: #e5e7eb; padding: 12px; border-radius: 8px; }}
-    .micro {{ font-size: 12px; color: #334155; }}
+    .row {{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }}
+    .flow {{
+      border:1px dashed #3f5f88;
+      padding:8px 10px;
+      border-radius:8px;
+      color:#bcd0ec;
+      margin-bottom:10px;
+      font-size:12px;
+    }}
+    details {{
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:8px 10px;
+      background: rgba(13, 26, 43, 0.9);
+    }}
+    summary {{ cursor:pointer; color:#cfe1fa; font-weight:600; }}
+    .out {{ margin-top:16px; }}
+    pre {{
+      white-space:pre-wrap;
+      background:#081221;
+      color:#dfe8f7;
+      padding:12px;
+      border-radius:9px;
+      border:1px solid #223d62;
+    }}
+    .error {{ color:#ffe0e4; background:#3a0f18; border-color:#6e2333; }}
+    .micro {{ font-size:12px; color:var(--muted); }}
     @media (max-width: 860px) {{
-      .grid {{ grid-template-columns: 1fr; }}
+      .top {{ flex-direction:column; align-items:flex-start; }}
+      .grid, .row {{ grid-template-columns:1fr; }}
     }}
   </style>
 </head>
 <body>
   <div class='container'>
-  <h1>{t["header"]}</h1>
-  <p>{t["subtitle"]}</p>
-  <p class='micro'>{t["language"]}: <a href='/?lang=pt' style='{pt_active}'>Português</a> | <a href='/?lang=en' style='{en_active}'>English</a></p>
+    <div class='top'>
+      <div class='brand'>
+        <svg width='72' height='72' viewBox='0 0 88 88' role='img' aria-label='emblem'>
+          <defs>
+            <linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'>
+              <stop offset='0%' stop-color='#1b4f89' />
+              <stop offset='100%' stop-color='#2f7cd0' />
+            </linearGradient>
+            <linearGradient id='g2' x1='0' y1='0' x2='1' y2='1'>
+              <stop offset='0%' stop-color='#2e8b57' />
+              <stop offset='100%' stop-color='#1f6f45' />
+            </linearGradient>
+          </defs>
+          <path d='M44 6 L76 18 L72 58 L44 82 L16 58 L12 18 Z' fill='url(#g1)' stroke='#7fb3ff' stroke-width='2'/>
+          <path d='M44 34 L72 22 L70 56 L44 78 L18 56 L16 22 Z' fill='url(#g2)' opacity='0.95'/>
+          <path d='M26 40 Q44 24 62 40' fill='none' stroke='#d8e6ff' stroke-width='3' stroke-linecap='round'/>
+          <path d='M44 24 L49 52 L44 62 L39 52 Z' fill='#f3d06b' stroke='#fff1ba' stroke-width='1'/>
+          <circle cx='44' cy='20' r='4.5' fill='#f3d06b'/>
+        </svg>
+        <div>
+          <h1>{t["header"]}</h1>
+          <p>{t["subtitle"]}</p>
+          <p class='micro'>{t["logo_note"]}</p>
+        </div>
+      </div>
+      <div class='lang'>{t["language"]}: <a href='/?lang=pt' style='{pt_active}'>Português</a> | <a href='/?lang=en' style='{en_active}'>English</a></div>
+    </div>
 
     <div class='grid'>
-    <div class='card'>
-      <h3>{t["run_card"]}</h3>
-      <form method='post' action='/run'>
-        {lang_hidden}
-        <label>{t["input"]}</label>
-        <textarea name='input' rows='3' placeholder='Pipeline falhou no Sonar'></textarea>
-        <label>{t["template"]}</label>
-        <select name='template'>
-          {template_options}
-        </select>
-        <label>{t["team_profile"]}</label>
-        <select name='team'>
-          {team_options}
-        </select>
-        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
-        <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
-        <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
-        <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
-        <button type='submit'>{t["run_button"]}</button>
-      </form>
-      <p class='micro'>{t["run_hint"]}</p>
+      <div class='stack'>
+        <div class='card'>
+          <h3>{t["run_card"]}</h3>
+          <div class='flow'><strong>{t["essential_flow"]}:</strong> {t["quick_guide_text"]}</div>
+          <form method='post' action='/run'>
+            {lang_hidden}
+            <label>{t["input"]}</label>
+            <textarea name='input' rows='3' placeholder='Pipeline falhou no Sonar'></textarea>
+            <div class='row'>
+              <div>
+                <label>{t["template"]}</label>
+                <select name='template'>{template_options}</select>
+              </div>
+              <div>
+                <label>{t["team_profile"]}</label>
+                <select name='team'>{team_options}</select>
+              </div>
+            </div>
+            <div class='row'>
+              <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
+              <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
+            </div>
+            <div class='row'>
+              <div>
+                <label>{t["approved_by"]}</label>
+                <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
+              </div>
+              <div>
+                <label>{t["approval_note"]}</label>
+                <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
+              </div>
+            </div>
+            <button type='submit'>{t["run_button"]}</button>
+          </form>
+          <p class='micro'>{t["run_hint"]}</p>
+        </div>
+
+        <div class='card'>
+          <h3>{t["jira_card"]}</h3>
+          <form method='post' action='/jira-run'>
+            {lang_hidden}
+            <label>{t["jira_issue"]}</label>
+            <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
+            <label>{t["jira_context"]}</label>
+            <textarea name='context' rows='2' placeholder='{t["jira_context_placeholder"]}'></textarea>
+            <div class='row'>
+              <button type='submit'>{t["jira_run_button"]}</button>
+              <button type='submit' formaction='/jira-authorize'>{t["jira_authorize_button"]}</button>
+            </div>
+          </form>
+          <p class='micro'>{t["jira_execute_button"]}</p>
+        </div>
+      </div>
+
+      <div class='stack'>
+        <div class='card'>
+          <h3>{t["status_doctor_card"]}</h3>
+          <form method='post' action='/status'>
+            {lang_hidden}
+            <label>{t["task_id_optional"]}</label>
+            <input name='task' placeholder='{t["task_placeholder"]}'>
+            <label><input type='checkbox' name='latest' checked> {t["latest"]}</label>
+            <div class='row'>
+              <button type='submit'>{t["status_button"]}</button>
+              <button type='submit' formaction='/doctor'>{t["doctor_button"]}</button>
+            </div>
+          </form>
+          <form method='post' action='/spec-pack'>
+            {lang_hidden}
+            <label>{t["feature_name_optional"]}</label>
+            <input name='feature' placeholder='feature-name'>
+            <label>{t["task_id_optional"]}</label>
+            <input name='task' placeholder='{t["task_placeholder"]}'>
+            <label><input type='checkbox' name='latest' checked> {t["latest"]}</label>
+            <div class='row'>
+              <button type='submit'>{t["spec_pack_button"]}</button>
+              <button type='submit' formaction='/spec-analyze'>{t["spec_analyze_button"]}</button>
+            </div>
+          </form>
+        </div>
+
+        <div class='card'>
+          <h3>{t["gate_card"]}</h3>
+          <form method='post' action='/gate-check'>
+            {lang_hidden}
+            <label>{t["task_id_optional"]}</label>
+            <input name='task' placeholder='{t["task_placeholder"]}'>
+            <label><input type='checkbox' name='latest' checked> {t["latest"]}</label>
+            <label>{t["approved_by"]}</label>
+            <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
+            <div class='row'>
+              <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
+              <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
+            </div>
+            <button type='submit'>{t["gate_button"]}</button>
+          </form>
+        </div>
+
+        <details>
+          <summary>{t["advanced_panel"]}</summary>
+          <div class='stack' style='margin-top:10px;'>
+            <div class='card'>
+              <h3>{t["code_review_card"]}</h3>
+              <form method='post' action='/review-code'>
+                {lang_hidden}
+                <label>{t["path"]}</label>
+                <input name='path' value='.'>
+                <button type='submit'>{t["review_button"]}</button>
+              </form>
+            </div>
+
+            <div class='card'>
+              <h3>{t["auto_debug_card"]}</h3>
+              <form method='post' action='/debug-auto'>
+                {lang_hidden}
+                <label>{t["validation_command"]}</label>
+                <input name='command' value='./scripts/agentctl-test.sh'>
+                <label>{t["path"]}</label>
+                <input name='path' value='.'>
+                <label><input type='checkbox' name='apply_refactor'> {t["apply_safe_refactor"]}</label>
+                <button type='submit'>{t["debug_button"]}</button>
+              </form>
+            </div>
+
+            <div class='card'>
+              <h3>Jira Extra</h3>
+              <form method='post' action='/jira-transitions'>
+                {lang_hidden}
+                <label>{t["jira_issue"]}</label>
+                <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
+                <button type='submit'>{t["jira_transitions_button"]}</button>
+              </form>
+              <form method='post' action='/jira-comment'>
+                {lang_hidden}
+                <label>{t["jira_issue"]}</label>
+                <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
+                <label>{t["jira_comment"]}</label>
+                <textarea name='comment' rows='2' placeholder='{t["jira_comment_placeholder"]}'></textarea>
+                <button type='submit'>{t["jira_comment_button"]}</button>
+              </form>
+              <form method='post' action='/jira-transition'>
+                {lang_hidden}
+                <label>{t["jira_issue"]}</label>
+                <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
+                <label>{t["jira_transition_name"]}</label>
+                <input name='to_status' placeholder='{t["jira_transition_placeholder"]}'>
+                <button type='submit'>{t["jira_transition_button"]}</button>
+              </form>
+              <form method='post' action='/jira-comment-template'>
+                {lang_hidden}
+                <label>{t["jira_comment_mode"]}</label>
+                <select name='mode'>{comment_mode_options}</select>
+                <label>{t["jira_issue"]}</label>
+                <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
+                <button type='submit'>{t["jira_comment_template_button"]}</button>
+              </form>
+              <form method='post' action='/catalog'>
+                {lang_hidden}
+                <button type='submit'>{t["catalog_button"]}</button>
+              </form>
+            </div>
+          </div>
+        </details>
+      </div>
     </div>
 
-    <div class='card'>
-      <h3>{t["jira_card"]}</h3>
-      <form method='post' action='/jira-authorize'>
-        {lang_hidden}
-        <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
-        <button type='submit'>{t["jira_authorize_button"]}</button>
-      </form>
-      <form method='post' action='/jira-transitions'>
-        {lang_hidden}
-        <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
-        <button type='submit'>{t["jira_transitions_button"]}</button>
-      </form>
-      <form method='post' action='/jira-run'>
-        {lang_hidden}
-        <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
-        <label>{t["jira_context"]}</label>
-        <textarea name='context' rows='3' placeholder='{t["jira_context_placeholder"]}'></textarea>
-        <label>{t["template"]}</label>
-        <select name='template'>
-          {template_options}
-        </select>
-        <label>{t["team_profile"]}</label>
-        <select name='team'>
-          {team_options}
-        </select>
-        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
-        <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
-        <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
-        <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
-        <button type='submit'>{t["jira_run_button"]}</button>
-      </form>
-      <p class='micro'>{t["jira_execute_button"]}</p>
-      <form method='post' action='/jira-comment'>
-        {lang_hidden}
-        <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
-        <label>{t["jira_comment"]}</label>
-        <textarea name='comment' rows='2' placeholder='{t["jira_comment_placeholder"]}'></textarea>
-        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
-        <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
-        <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
-        <button type='submit'>{t["jira_comment_button"]}</button>
-      </form>
-      <form method='post' action='/jira-transition'>
-        {lang_hidden}
-        <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
-        <label>{t["jira_transition_name"]}</label>
-        <input name='to_status' placeholder='{t["jira_transition_placeholder"]}'>
-        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
-        <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
-        <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
-        <button type='submit'>{t["jira_transition_button"]}</button>
-      </form>
-      <form method='post' action='/jira-comment-template'>
-        {lang_hidden}
-        <label>{t["jira_comment_template"]}</label>
-        <label>{t["jira_issue"]}</label>
-        <input name='issue' placeholder='{t["jira_issue_placeholder"]}'>
-        <label>{t["jira_comment_mode"]}</label>
-        <select name='mode'>
-          {comment_mode_options}
-        </select>
-        <label>{t["task_id_optional"]}</label>
-        <input name='task' placeholder='{t["task_placeholder"]}'>
-        <label><input type='checkbox' name='latest'> {t["latest"]}</label>
-        <label>{t["jira_context"]}</label>
-        <textarea name='extra' rows='2' placeholder='{t["jira_context_placeholder"]}'></textarea>
-        <label><input type='checkbox' name='post_now'> {t["jira_comment_template_post_now"]}</label>
-        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
-        <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
-        <label>{t["approval_note"]}</label>
-        <input name='approval_note' placeholder='{t["approval_note_placeholder"]}'>
-        <button type='submit'>{t["jira_comment_template_button"]}</button>
-      </form>
+    <div class='out'>
+      {output_block}
+      {err_block}
     </div>
-
-    <div class='card'>
-      <h3>{t["status_doctor_card"]}</h3>
-      <form method='post' action='/status'>
-        {lang_hidden}
-        <label>{t["task_id_optional"]}</label>
-        <input name='task' placeholder='{t["task_placeholder"]}'>
-        <label><input type='checkbox' name='latest' checked> {t["latest"]}</label>
-        <button type='submit'>{t["status_button"]}</button>
-      </form>
-      <form method='post' action='/catalog'>
-        {lang_hidden}
-        <button type='submit'>{t["catalog_button"]}</button>
-      </form>
-      <form method='post' action='/doctor'>
-        {lang_hidden}
-        <button type='submit'>{t["doctor_button"]}</button>
-      </form>
-    </div>
-
-    <div class='card'>
-      <h3>{t["gate_card"]}</h3>
-      <form method='post' action='/gate-check'>
-        {lang_hidden}
-        <label>{t["task_id_optional"]}</label>
-        <input name='task' placeholder='{t["task_placeholder"]}'>
-        <label><input type='checkbox' name='latest' checked> {t["latest"]}</label>
-        <label><input type='checkbox' name='manager_approved'> {t["manager_approved"]}</label>
-        <label><input type='checkbox' name='auto_approve'> {t["auto_approve"]}</label>
-        <label>{t["approved_by"]}</label>
-        <input name='approved_by' placeholder='{t["manager_name_placeholder"]}'>
-        <button type='submit'>{t["gate_button"]}</button>
-      </form>
-    </div>
-
-    <div class='card'>
-      <h3>{t["code_review_card"]}</h3>
-      <form method='post' action='/review-code'>
-        {lang_hidden}
-        <label>{t["path"]}</label>
-        <input name='path' value='.'>
-        <button type='submit'>{t["review_button"]}</button>
-      </form>
-    </div>
-
-    <div class='card'>
-      <h3>{t["auto_debug_card"]}</h3>
-      <form method='post' action='/debug-auto'>
-        {lang_hidden}
-        <label>{t["validation_command"]}</label>
-        <input name='command' value='./scripts/agentctl-test.sh'>
-        <label>{t["path"]}</label>
-        <input name='path' value='.'>
-        <label><input type='checkbox' name='apply_refactor'> {t["apply_safe_refactor"]}</label>
-        <button type='submit'>{t["debug_button"]}</button>
-      </form>
-    </div>
-  </div>
-
-  <div class='out'>
-    {output_block}
-    {err_block}
-  </div>
   </div>
 </body>
 </html>
@@ -464,6 +550,23 @@ class Handler(BaseHTTPRequestHandler):
             args = ["doctor"]
         elif path == "/catalog":
             args = ["catalog"]
+        elif path == "/spec-pack":
+            task = form.get("task", [""])[0].strip()
+            feature = form.get("feature", [""])[0].strip()
+            args = ["spec-pack"]
+            if task:
+                args += ["--task", task]
+            if "latest" in form:
+                args.append("--latest")
+            if feature:
+                args += ["--feature", feature]
+        elif path == "/spec-analyze":
+            task = form.get("task", [""])[0].strip()
+            args = ["spec-analyze"]
+            if task:
+                args += ["--task", task]
+            if "latest" in form:
+                args.append("--latest")
         elif path == "/jira-authorize":
             issue = form.get("issue", [""])[0].strip()
             if not issue:

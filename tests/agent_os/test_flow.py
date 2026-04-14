@@ -175,6 +175,39 @@ class TestAgentFlow(unittest.TestCase):
         self.assertIn("observability-rollout", template_ids)
         self.assertIn("platform-core", team_ids)
 
+    def test_spec_pack_generation(self) -> None:
+        created = self.service.new_task(
+            "Apply observability standard to service api-logwriter",
+            "text",
+            "inline",
+            template_id="observability-rollout",
+            team_profile="platform-core",
+        )
+        self.service.plan_task(created["task_file"])
+        packed = self.service.spec_pack_task(created["task_file"])
+
+        spec_pack_path = self.base_dir / packed["spec_pack_path"]
+        self.assertTrue(spec_pack_path.exists())
+        self.assertTrue((spec_pack_path / "spec.md").exists())
+        self.assertTrue((spec_pack_path / "plan.md").exists())
+        self.assertTrue((spec_pack_path / "tasks.md").exists())
+        self.assertTrue((spec_pack_path / "checklists" / "spec-quality.md").exists())
+        self.assertEqual(packed["quality_status"], "PASS")
+
+        status = self.service.status_task(created["task_file"])
+        self.assertTrue(status["spec_pack"]["path"])
+        self.assertEqual(status["spec_pack"]["quality_status"], "PASS")
+
+        analyzed = self.service.spec_analyze_task(created["task_file"])
+        self.assertEqual(analyzed["overall"], "GO")
+
+    def test_spec_analyze_requires_spec_pack(self) -> None:
+        created = self.service.new_task("Pipeline issue", "text", "inline")
+        self.service.plan_task(created["task_file"])
+        with self.assertRaises(ServiceError) as ctx:
+            self.service.spec_analyze_task(created["task_file"])
+        self.assertIn("Spec pack not found", ctx.exception.message)
+
     def test_new_task_with_invalid_template_returns_service_error(self) -> None:
         with self.assertRaises(ServiceError) as ctx:
             self.service.new_task(

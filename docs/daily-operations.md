@@ -41,6 +41,10 @@ Usar o sistema de agents de forma simples, segura e repetivel no dia a dia.
    - `./scripts/agentctl learn --task <TASK_ID>`
 7. Piloto rapido completo (tudo em um comando, local e seguro):
    - `./scripts/pilot-authorized-card.sh <ISSUE_KEY> "<demanda>"`
+8. Fluxo spec-driven (base Spec Kit):
+   - `./scripts/agentctl spec-pack --task <TASK_ID>`
+   - `./scripts/agentctl spec-analyze --task <TASK_ID>`
+   - guia: `docs/spec-kit-integracao.md`
 
 ## Revisao de codigo e debug automatico
 1. Revisar riscos de codigo:
@@ -58,7 +62,7 @@ Usar o sistema de agents de forma simples, segura e repetivel no dia a dia.
    - Ingles: `http://127.0.0.1:8787/?lang=en`
 3. Usar botoes de Run, Status, Doctor, Review Code e Debug Auto.
 4. Guia para equipe:
-   - `docs/guia-uso-agentctl-ui.md`
+   - `docs/ui-guide.md`
 
 ## Regras de seguranca
 - Sempre trabalhar com `DRY_RUN=true` ate aprovar.

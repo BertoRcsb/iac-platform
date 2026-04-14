@@ -142,12 +142,36 @@ def cmd_status(service: AgentService, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_spec_pack(service: AgentService, args: argparse.Namespace) -> None:
+    result = service.spec_pack_task(task_ref=args.task, latest=args.latest, feature_name=args.feature)
+    emit(
+        reasoning=(
+            "Spec pack generation converts task planning into spec-driven artifacts "
+            "(spec/plan/tasks/checklist) for faster and safer implementation."
+        ),
+        decision=result["next_command"],
+        data=result,
+    )
+
+
 def cmd_catalog(service: AgentService, args: argparse.Namespace) -> None:
     data = service.catalog()
     emit(
         reasoning="Catalog exposes the team profiles and task templates for fast and consistent operations.",
         decision="Select a template and run: ./scripts/agentctl run --input \"...\" --template <id> --team <profile>",
         data=data,
+    )
+
+
+def cmd_spec_analyze(service: AgentService, args: argparse.Namespace) -> None:
+    result = service.spec_analyze_task(task_ref=args.task, latest=args.latest)
+    emit(
+        reasoning=(
+            "Spec analysis runs quality gates on generated artifacts "
+            "(required files, required sections, clean-architecture and actionable tasks)."
+        ),
+        decision=result["next_command"],
+        data=result,
     )
 
 
@@ -307,6 +331,8 @@ def cmd_run(service: AgentService, args: argparse.Namespace) -> None:
         "risks": result["risks"],
         "plan_steps": result["plan_steps"],
         "workflow": result.get("workflow", ""),
+        "spec_pack_path": result.get("spec_pack_path", ""),
+        "spec_pack_quality": result.get("spec_pack_quality", ""),
         "approval_required": result["approval_required"],
         "approved_by": result.get("approved_by", ""),
         "provider": result["provider"],
@@ -390,6 +416,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_status = sub.add_parser("status", help="Show task status")
     p_status.add_argument("--task", help="Task id or task.json path")
     p_status.add_argument("--latest", action="store_true", help="Use latest task")
+
+    p_spec = sub.add_parser("spec-pack", help="Generate spec-driven pack (spec/plan/tasks/checklist)")
+    p_spec.add_argument("--task", help="Task id or task.json path")
+    p_spec.add_argument("--latest", action="store_true", help="Use latest task")
+    p_spec.add_argument("--feature", default="", help="Optional custom feature name")
+
+    p_spec_analyze = sub.add_parser("spec-analyze", help="Analyze spec pack quality gates")
+    p_spec_analyze.add_argument("--task", help="Task id or task.json path")
+    p_spec_analyze.add_argument("--latest", action="store_true", help="Use latest task")
 
     p_gate = sub.add_parser("gate-check", help="Run GO/NO-GO checklist before execution")
     p_gate.add_argument("--task", help="Task id or task.json path")
@@ -481,6 +516,8 @@ def main() -> int:
             "review": cmd_review,
             "learn": cmd_learn,
             "status": cmd_status,
+            "spec-pack": cmd_spec_pack,
+            "spec-analyze": cmd_spec_analyze,
             "gate-check": cmd_gate_check,
             "catalog": cmd_catalog,
             "doctor": cmd_doctor,
